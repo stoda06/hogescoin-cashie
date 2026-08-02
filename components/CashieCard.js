@@ -735,21 +735,28 @@ export default function CashieCard({
 
   useEffect(
     () => {
-      Animated.timing(
-        flipProgress,
-        {
-          toValue:
-            showingReceive
-              ? 1
-              : 0,
+      const flipAnimation =
+        Animated.timing(
+          flipProgress,
+          {
+            toValue:
+              showingReceive
+                ? 1
+                : 0,
 
-          duration:
-            520,
+            duration:
+              520,
 
-          useNativeDriver:
-            true,
-        }
-      ).start();
+            useNativeDriver:
+              true,
+          }
+        );
+
+      flipAnimation.start();
+
+      return () => {
+        flipAnimation.stop();
+      };
     },
     [
       flipProgress,

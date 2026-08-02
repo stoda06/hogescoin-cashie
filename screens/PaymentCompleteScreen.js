@@ -1,5 +1,6 @@
 import React, {
   useEffect,
+  useRef,
   useState,
 } from 'react';
 
@@ -134,13 +135,14 @@ export default function PaymentCompleteScreen({
   recipient = '',
   walletAddress = '',
   requiresName = false,
+  suggestedName = '',
 
   amount = 0,
   currencySymbol = '$',
   txId = '',
 
-  networkCostAud = 0,
-  swapCostAud = 0,
+  networkCostAud = null,
+  swapCostAud = null,
 
   isCashiePerson = false,
 
@@ -159,7 +161,7 @@ export default function PaymentCompleteScreen({
     setCashieName,
   ] = useState(
     requiresName
-      ? ''
+      ? suggestedName
       : recipient
   );
 
@@ -198,6 +200,17 @@ export default function PaymentCompleteScreen({
     displayAddress ||
     'Recipient';
 
+  /*
+   * Cost props default to null, not 0: no data means
+   * the breakdown is hidden rather than shown as a
+   * misleading $0.00 receipt.
+   */
+  const hasCostData =
+    networkCostAud !==
+      null ||
+    swapCostAud !==
+      null;
+
   const totalCostAud =
     Number(
       networkCostAud || 0
@@ -229,7 +242,27 @@ export default function PaymentCompleteScreen({
     )}`;
   }
 
+  /*
+   * Reset local state only when the payment target
+   * actually changes. After a successful save the
+   * parent re-renders with isCashiePerson=true for the
+   * same address, and resetting then would wipe the
+   * name the user just typed.
+   */
+  const lastAddressRef =
+    useRef(walletAddress);
+
   useEffect(() => {
+    if (
+      lastAddressRef.current ===
+      walletAddress
+    ) {
+      return;
+    }
+
+    lastAddressRef.current =
+      walletAddress;
+
     setRemembered(
       isCashiePerson
     );
@@ -239,22 +272,18 @@ export default function PaymentCompleteScreen({
         ? recipient
         : ''
     );
-  }, [
-    isCashiePerson,
-    recipient,
-    walletAddress,
-  ]);
 
-  useEffect(() => {
     setCashieName(
       requiresName
-        ? ''
+        ? suggestedName
         : recipient
     );
   }, [
+    walletAddress,
+    isCashiePerson,
     recipient,
     requiresName,
-    walletAddress,
+    suggestedName,
   ]);
 
   async function handleRemember() {
@@ -489,57 +518,61 @@ export default function PaymentCompleteScreen({
             </>
           ) : null}
 
-          <View
-            style={
-              styles.divider
-            }
-          />
-
-          <View
-            style={
-              styles.costBreakdown
-            }
-          >
-            <Text
-              style={
-                styles.costHeading
-              }
-            >
-              ACTUAL COST
-            </Text>
-
-            <CostRow
-              label="Network"
-              value={displayCost(
-                networkCostAud
-              )}
-            />
-
-            {Number(
-              swapCostAud || 0
-            ) > 0 ? (
-              <CostRow
-                label="Swap"
-                value={displayCost(
-                  swapCostAud
-                )}
+          {hasCostData ? (
+            <>
+              <View
+                style={
+                  styles.divider
+                }
               />
-            ) : null}
 
-            <View
-              style={
-                styles.costDivider
-              }
-            />
+              <View
+                style={
+                  styles.costBreakdown
+                }
+              >
+                <Text
+                  style={
+                    styles.costHeading
+                  }
+                >
+                  ACTUAL COST
+                </Text>
 
-            <CostRow
-              label="Total"
-              value={displayCost(
-                totalCostAud
-              )}
-              total
-            />
-          </View>
+                <CostRow
+                  label="Network"
+                  value={displayCost(
+                    networkCostAud
+                  )}
+                />
+
+                {Number(
+                  swapCostAud || 0
+                ) > 0 ? (
+                  <CostRow
+                    label="Swap"
+                    value={displayCost(
+                      swapCostAud
+                    )}
+                  />
+                ) : null}
+
+                <View
+                  style={
+                    styles.costDivider
+                  }
+                />
+
+                <CostRow
+                  label="Total"
+                  value={displayCost(
+                    totalCostAud
+                  )}
+                  total
+                />
+              </View>
+            </>
+          ) : null}
 
           <View
             style={

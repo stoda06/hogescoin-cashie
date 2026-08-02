@@ -11,6 +11,8 @@ import {
   View,
 } from 'react-native';
 
+import * as Clipboard from 'expo-clipboard';
+
 import WalletCoverScreen from './screens/WalletCoverScreen.js';
 import HomeScreen from './screens/HomeScreen.js';
 import WhoToPayScreen from './screens/WhoToPayScreen.js';
@@ -52,7 +54,9 @@ import {
   clearPaymentHistory,
   factoryResetStorage,
   loadAppState,
+  loadSettings,
   saveAppState,
+  saveSettings,
 } from './services/storageService.js';
 
 import {
@@ -434,6 +438,20 @@ export default function App() {
       false
     );
 
+  const [
+    paymentApprovalEnabled,
+    setPaymentApprovalEnabled,
+  ] = useState(
+    true
+  );
+
+  const [
+    depositWalletAddress,
+    setDepositWalletAddress,
+  ] = useState(
+    ''
+  );
+
   const selectedPerson =
     useMemo(
       () =>
@@ -639,6 +657,46 @@ export default function App() {
           );
         }
 
+        try {
+          const storedSettings =
+            await loadSettings();
+
+          if (
+            !active
+          ) {
+            return;
+          }
+
+          if (
+            typeof storedSettings
+              ?.paymentApprovalEnabled ===
+            'boolean'
+          ) {
+            setPaymentApprovalEnabled(
+              storedSettings
+                .paymentApprovalEnabled
+            );
+          }
+
+          if (
+            typeof storedSettings
+              ?.depositWalletAddress ===
+            'string'
+          ) {
+            setDepositWalletAddress(
+              storedSettings
+                .depositWalletAddress
+            );
+          }
+        } catch (
+          error
+        ) {
+          console.warn(
+            'Cashie settings load failed:',
+            error
+          );
+        }
+
         if (
           active &&
           stateLoaded
@@ -738,6 +796,33 @@ export default function App() {
         return;
       }
 
+      saveSettings({
+        paymentApprovalEnabled,
+        depositWalletAddress,
+      }).catch(
+        error => {
+          console.warn(
+            'Cashie settings save failed:',
+            error
+          );
+        }
+      );
+    },
+    [
+      storageReady,
+      paymentApprovalEnabled,
+      depositWalletAddress,
+    ]
+  );
+
+  useEffect(
+    () => {
+      if (
+        !storageReady
+      ) {
+        return;
+      }
+
       let active =
         true;
 
@@ -781,6 +866,48 @@ export default function App() {
     [
       displayCurrency,
       storageReady,
+    ]
+  );
+
+  /*
+   * The wallet cover promises activation "on first
+   * deposit". Without this, a factory reset left
+   * walletActivated false forever and the app was
+   * soft-locked behind the cover.
+   */
+  useEffect(
+    () => {
+      if (
+        walletActivated
+      ) {
+        return;
+      }
+
+      const hasFunds =
+        Number(
+          wallet
+            ?.hogesBalance ||
+          0
+        ) >
+          0 ||
+        Number(
+          wallet
+            ?.solBalance ||
+          0
+        ) >
+          0;
+
+      if (
+        hasFunds
+      ) {
+        setWalletActivated(
+          true
+        );
+      }
+    },
+    [
+      walletActivated,
+      wallet,
     ]
   );
 
@@ -931,7 +1058,7 @@ export default function App() {
     );
   }
 
-  function payCashiePerson() {
+  function returnToWalletFromPerson() {
     clearPayment();
 
     setSelectedPersonId(
@@ -1328,12 +1455,18 @@ export default function App() {
         activity.time ||
         '',
 
+      /*
+       * Local bookkeeping entries have no on-chain
+       * identity: no fabricated transaction id, and
+       * "Recorded" rather than a settlement claim.
+       */
       transactionId:
         activity.transactionId ||
-        activity.id,
+        '',
 
       status:
-        'Completed',
+        activity.status ||
+        'Recorded',
     };
 
     setSelectedReceipt(
@@ -1397,11 +1530,24 @@ export default function App() {
     );
   }
 
-  function copyWalletAddress() {
-    Alert.alert(
-      'Wallet Address',
-      `${TEST_ADDRESS}\n\nCopy-to-clipboard will be connected when the wallet is live.`
-    );
+  async function copyWalletAddress() {
+    try {
+      await Clipboard.setStringAsync(
+        TEST_ADDRESS
+      );
+
+      Alert.alert(
+        'Wallet Address Copied',
+        TEST_ADDRESS
+      );
+    } catch (
+      error
+    ) {
+      Alert.alert(
+        'Wallet Address',
+        TEST_ADDRESS
+      );
+    }
   }
 
   function topUpBattery(
@@ -1585,6 +1731,14 @@ export default function App() {
       BATTERY_LOW_THRESHOLD_AUD
     );
 
+    setPaymentApprovalEnabled(
+      true
+    );
+
+    setDepositWalletAddress(
+      ''
+    );
+
     setRecipient(
       null
     );
@@ -1654,6 +1808,24 @@ export default function App() {
         }
         walletAddress={
           TEST_ADDRESS
+        }
+        depositWalletAddress={
+          depositWalletAddress
+        }
+        onDepositWalletChange={
+          setDepositWalletAddress
+        }
+        hogesBalance={
+          wallet.hogesBalance
+        }
+        solBalance={
+          wallet.solBalance
+        }
+        paymentApprovalEnabled={
+          paymentApprovalEnabled
+        }
+        onPaymentApprovalChange={
+          setPaymentApprovalEnabled
         }
         batteryReserveAud={
           battery.reserveAud
@@ -1758,6 +1930,12 @@ export default function App() {
         solPriceAud={
           priceSnapshot
             .solPriceAud
+        }
+        walletAddress={
+          TEST_ADDRESS
+        }
+        depositWalletAddress={
+          depositWalletAddress
         }
         totalWalletValueAud={
           walletValue
@@ -1885,8 +2063,8 @@ export default function App() {
           onBack={
             openCashiePeople
           }
-          onPay={
-            payCashiePerson
+          onReturnToWallet={
+            returnToWalletFromPerson
           }
           onEdit={
             openEditPerson
@@ -2145,7 +2323,10 @@ export default function App() {
           alreadyKnown
         }
         requiresName={
-          !alreadyKnown
+          !alreadyKnown &&
+          recipient
+            ?.requiresName !==
+            false
         }
         suggestedName={
           recipient?.name ||

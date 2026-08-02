@@ -5,9 +5,9 @@ import React, {
 } from 'react';
 
 import {
+  FlatList,
   Pressable,
   SafeAreaView,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -222,15 +222,26 @@ function formatLastPaid(
     return `${differenceInDays} days ago`;
   }
 
-  return paymentDate.toLocaleDateString(
-    'en-AU',
+  const formatOptions =
     {
       day:
         'numeric',
 
       month:
         'short',
-    }
+    };
+
+  if (
+    paymentDate.getFullYear() !==
+    now.getFullYear()
+  ) {
+    formatOptions.year =
+      'numeric';
+  }
+
+  return paymentDate.toLocaleDateString(
+    'en-AU',
+    formatOptions
   );
 }
 
@@ -420,14 +431,9 @@ export default function CashiePeopleList({
     ''
   );
 
-  const scrollViewRef =
+  const listRef =
     useRef(
       null
-    );
-
-  const sectionPositions =
-    useRef(
-      {}
     );
 
   const preparedPeople =
@@ -571,12 +577,98 @@ export default function CashiePeopleList({
       ]
     );
 
-  const visibleSections =
-    ALPHABET.filter(
-      section =>
-        alphabeticalGroups[
-          section
-        ]?.length
+  const listItems =
+    useMemo(
+      () => {
+        const items =
+          [];
+
+        if (
+          recentPeople.length >
+          0
+        ) {
+          items.push(
+            {
+              type:
+                'header',
+
+              key:
+                'header-RECENT',
+
+              title:
+                'RECENT',
+            }
+          );
+
+          recentPeople.forEach(
+            person => {
+              items.push(
+                {
+                  type:
+                    'person',
+
+                  key:
+                    `recent-${person.id}`,
+
+                  person,
+                }
+              );
+            }
+          );
+        }
+
+        ALPHABET.forEach(
+          section => {
+            const sectionPeople =
+              alphabeticalGroups[
+                section
+              ];
+
+            if (
+              !sectionPeople?.length
+            ) {
+              return;
+            }
+
+            items.push(
+              {
+                type:
+                  'header',
+
+                key:
+                  `header-${section}`,
+
+                title:
+                  section,
+
+                section,
+              }
+            );
+
+            sectionPeople.forEach(
+              person => {
+                items.push(
+                  {
+                    type:
+                      'person',
+
+                    key:
+                      person.id,
+
+                    person,
+                  }
+                );
+              }
+            );
+          }
+        );
+
+        return items;
+      },
+      [
+        recentPeople,
+        alphabeticalGroups,
+      ]
     );
 
   const peopleSubtitle =
@@ -588,22 +680,25 @@ export default function CashiePeopleList({
   function handleIndexPress(
     letter
   ) {
-    const position =
-      sectionPositions.current[
-        letter
-      ];
+    const index =
+      listItems.findIndex(
+        item =>
+          item.type ===
+            'header' &&
+          item.section ===
+            letter
+      );
 
     if (
-      typeof position !==
-      'number'
+      index <
+      0
     ) {
       return;
     }
 
-    scrollViewRef.current?.scrollTo(
+    listRef.current?.scrollToIndex(
       {
-        y:
-          position,
+        index,
 
         animated:
           true,
@@ -611,14 +706,47 @@ export default function CashiePeopleList({
     );
   }
 
-  function recordSectionPosition(
-    section,
-    event
+  function handleScrollToIndexFailed(
+    info
   ) {
-    sectionPositions.current[
-      section
-    ] =
-      event.nativeEvent.layout.y;
+    listRef.current?.scrollToOffset(
+      {
+        offset:
+          info.averageItemLength *
+          info.index,
+
+        animated:
+          true,
+      }
+    );
+  }
+
+  function renderListItem({
+    item,
+  }) {
+    if (
+      item.type ===
+      'header'
+    ) {
+      return (
+        <SectionHeader
+          title={
+            item.title
+          }
+        />
+      );
+    }
+
+    return (
+      <PersonRow
+        person={
+          item.person
+        }
+        onPress={
+          onSelectPerson
+        }
+      />
+    );
   }
 
   return (
@@ -718,89 +846,21 @@ export default function CashiePeopleList({
               />
             ) : (
               <>
-                <ScrollView
+                <FlatList
                   ref={
-                    scrollViewRef
+                    listRef
                   }
-                  style={
-                    styles.peopleScroll
+                  data={
+                    listItems
                   }
-                  contentContainerStyle={
-                    styles.peopleScrollContent
+                  keyExtractor={
+                    item =>
+                      item.key
                   }
-                  showsVerticalScrollIndicator={
-                    false
+                  renderItem={
+                    renderListItem
                   }
-                  keyboardShouldPersistTaps="handled"
-                >
-                  {recentPeople.length >
-                  0 ? (
-                    <View>
-                      <SectionHeader
-                        title="RECENT"
-                      />
-
-                      {recentPeople.map(
-                        person => (
-                          <PersonRow
-                            key={
-                              `recent-${person.id}`
-                            }
-                            person={
-                              person
-                            }
-                            onPress={
-                              onSelectPerson
-                            }
-                          />
-                        )
-                      )}
-                    </View>
-                  ) : null}
-
-                  {visibleSections.map(
-                    section => (
-                      <View
-                        key={
-                          section
-                        }
-                        onLayout={
-                          event =>
-                            recordSectionPosition(
-                              section,
-                              event
-                            )
-                        }
-                      >
-                        <SectionHeader
-                          title={
-                            section
-                          }
-                        />
-
-                        {alphabeticalGroups[
-                          section
-                        ].map(
-                          person => (
-                            <PersonRow
-                              key={
-                                person.id
-                              }
-                              person={
-                                person
-                              }
-                              onPress={
-                                onSelectPerson
-                              }
-                            />
-                          )
-                        )}
-                      </View>
-                    )
-                  )}
-
-                  {filteredPeople.length ===
-                  0 ? (
+                  ListEmptyComponent={
                     <View
                       style={
                         styles.noSearchResults
@@ -822,8 +882,21 @@ export default function CashiePeopleList({
                         Try another name
                       </Text>
                     </View>
-                  ) : null}
-                </ScrollView>
+                  }
+                  onScrollToIndexFailed={
+                    handleScrollToIndexFailed
+                  }
+                  style={
+                    styles.peopleScroll
+                  }
+                  contentContainerStyle={
+                    styles.peopleScrollContent
+                  }
+                  showsVerticalScrollIndicator={
+                    false
+                  }
+                  keyboardShouldPersistTaps="handled"
+                />
 
                 <View
                   style={

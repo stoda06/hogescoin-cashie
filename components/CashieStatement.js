@@ -17,58 +17,16 @@ const COLORS = {
   white: "#FFFDF8",
 };
 
-const DEFAULT_STATEMENT = {
-  relationshipName: "Mum",
-  walletAddress: "cashie1q8g3...7k9m",
-  transactions: [
-    {
-      id: "1",
-      date: "26 Jul 2026",
-      description: "Sent",
-      amount: -25,
-    },
-    {
-      id: "2",
-      date: "24 Jul 2026",
-      description: "Received",
-      amount: 10,
-    },
-    {
-      id: "3",
-      date: "20 Jul 2026",
-      description: "Sent",
-      amount: -18.5,
-    },
-    {
-      id: "4",
-      date: "17 Jul 2026",
-      description: "Received",
-      amount: 40,
-    },
-    {
-      id: "5",
-      date: "15 Jul 2026",
-      description: "Sent",
-      amount: -15,
-    },
-    {
-      id: "6",
-      date: "12 Jul 2026",
-      description: "Received",
-      amount: 20,
-    },
-    {
-      id: "7",
-      date: "09 Jul 2026",
-      description: "Sent",
-      amount: -8.5,
-    },
-  ],
-};
-
 function formatMoney(amount) {
   const sign = amount >= 0 ? "+" : "-";
   const absoluteAmount = Math.abs(amount).toFixed(2);
+
+  return `${sign}A$${absoluteAmount}`;
+}
+
+function formatCents(cents) {
+  const sign = cents >= 0 ? "+" : "-";
+  const absoluteAmount = (Math.abs(cents) / 100).toFixed(2);
 
   return `${sign}A$${absoluteAmount}`;
 }
@@ -100,31 +58,40 @@ function StatementRow({ transaction }) {
 }
 
 export default function CashieStatement({
-  statement = DEFAULT_STATEMENT,
+  statement = null,
   onDone,
 }) {
+  const transactions = Array.isArray(statement?.transactions)
+    ? statement.transactions
+    : [];
+
+  const relationshipName = String(statement?.relationshipName || "");
+  const walletAddress = String(statement?.walletAddress || "");
+
   const totals = useMemo(() => {
-    return statement.transactions.reduce(
+    return transactions.reduce(
       (result, transaction) => {
-        if (transaction.amount < 0) {
-          result.sent += Math.abs(transaction.amount);
+        const cents = Math.round(Number(transaction.amount || 0) * 100);
+
+        if (cents < 0) {
+          result.sentCents += Math.abs(cents);
         } else {
-          result.received += transaction.amount;
+          result.receivedCents += cents;
         }
 
         return result;
       },
       {
-        sent: 0,
-        received: 0,
+        sentCents: 0,
+        receivedCents: 0,
       }
     );
-  }, [statement.transactions]);
+  }, [transactions]);
 
-  const net = totals.received - totals.sent;
+  const netCents = totals.receivedCents - totals.sentCents;
 
   async function handleShare() {
-    const transactionLines = statement.transactions.map((transaction) => {
+    const transactionLines = transactions.map((transaction) => {
       return [
         transaction.date,
         transaction.description,
@@ -135,14 +102,14 @@ export default function CashieStatement({
     const message = [
       "CASHIE STATEMENT",
       "",
-      `RELATIONSHIP: ${statement.relationshipName.toUpperCase()}`,
-      `WALLET: ${statement.walletAddress}`,
+      `RELATIONSHIP: ${relationshipName.toUpperCase()}`,
+      `WALLET: ${walletAddress}`,
       "",
       ...transactionLines,
       "",
-      `TOTAL SENT: -A$${totals.sent.toFixed(2)}`,
-      `TOTAL RECEIVED: +A$${totals.received.toFixed(2)}`,
-      `NET: ${formatMoney(net)}`,
+      `TOTAL SENT: -A$${(totals.sentCents / 100).toFixed(2)}`,
+      `TOTAL RECEIVED: +A$${(totals.receivedCents / 100).toFixed(2)}`,
+      `NET: ${formatCents(netCents)}`,
     ].join("\n");
 
     try {
@@ -170,7 +137,7 @@ export default function CashieStatement({
               <Text style={styles.detailLabel}>RELATIONSHIP:</Text>
 
               <Text style={styles.detailValue}>
-                {statement.relationshipName.toUpperCase()}
+                {relationshipName.toUpperCase()}
               </Text>
             </View>
 
@@ -178,7 +145,7 @@ export default function CashieStatement({
               <Text style={styles.detailLabel}>WALLET:</Text>
 
               <Text style={styles.detailValue}>
-                {statement.walletAddress}
+                {walletAddress}
               </Text>
             </View>
           </View>
@@ -200,12 +167,18 @@ export default function CashieStatement({
           <StatementRule />
 
           <View style={styles.transactions}>
-            {statement.transactions.map((transaction) => (
-              <StatementRow
-                key={transaction.id}
-                transaction={transaction}
-              />
-            ))}
+            {transactions.length > 0 ? (
+              transactions.map((transaction) => (
+                <StatementRow
+                  key={transaction.id}
+                  transaction={transaction}
+                />
+              ))
+            ) : (
+              <Text style={styles.emptyText}>
+                No transactions in this period.
+              </Text>
+            )}
           </View>
 
           <StatementRule />
@@ -215,7 +188,7 @@ export default function CashieStatement({
               <Text style={styles.totalLabel}>TOTAL SENT:</Text>
 
               <Text style={styles.totalValue}>
-                -A${totals.sent.toFixed(2)}
+                -A${(totals.sentCents / 100).toFixed(2)}
               </Text>
             </View>
 
@@ -223,7 +196,7 @@ export default function CashieStatement({
               <Text style={styles.totalLabel}>TOTAL RECEIVED:</Text>
 
               <Text style={styles.totalValue}>
-                +A${totals.received.toFixed(2)}
+                +A${(totals.receivedCents / 100).toFixed(2)}
               </Text>
             </View>
           </View>
@@ -233,7 +206,7 @@ export default function CashieStatement({
           <View style={styles.netRow}>
             <Text style={styles.netLabel}>NET:</Text>
 
-            <Text style={styles.netValue}>{formatMoney(net)}</Text>
+            <Text style={styles.netValue}>{formatCents(netCents)}</Text>
           </View>
 
           <View style={styles.bottomPaperEdge} />
@@ -241,15 +214,17 @@ export default function CashieStatement({
       </View>
 
       <View style={styles.actions}>
-        <Pressable
-          onPress={handleShare}
-          style={({ pressed }) => [
-            styles.secondaryButton,
-            pressed && styles.buttonPressed,
-          ]}
-        >
-          <Text style={styles.secondaryButtonText}>SHARE STATEMENT</Text>
-        </Pressable>
+        {transactions.length > 0 ? (
+          <Pressable
+            onPress={handleShare}
+            style={({ pressed }) => [
+              styles.secondaryButton,
+              pressed && styles.buttonPressed,
+            ]}
+          >
+            <Text style={styles.secondaryButtonText}>SHARE STATEMENT</Text>
+          </Pressable>
+        ) : null}
 
         <Pressable
           onPress={onDone}
@@ -390,6 +365,14 @@ const styles = StyleSheet.create({
     fontFamily: "monospace",
     fontSize: 11,
     fontWeight: "500",
+  },
+
+  emptyText: {
+    color: COLORS.muted,
+    fontFamily: "monospace",
+    fontSize: 11,
+    textAlign: "center",
+    paddingVertical: 14,
   },
 
   dateColumn: {

@@ -306,7 +306,7 @@ export default function CashieUnderTheHood({
           />
 
           <DetailRow
-            label="HOGES value"
+            label="HOGES rate"
             value={formatAud(
               hogesPerSolAud
             )}

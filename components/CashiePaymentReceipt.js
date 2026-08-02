@@ -18,19 +18,14 @@ const COLORS = {
   white: "#FFFDF8",
 };
 
-const DEFAULT_RECEIPT = {
-  recipientName: "Mum",
-  amount: "A$25.00",
-  date: "26 JUL 2026",
-  time: "10:42 AM",
-  transactionId: "7f3a 9c2d 4e1b 8a7f",
-  status: "COMPLETED",
-};
-
 export default function CashiePaymentReceipt({
-  receipt = DEFAULT_RECEIPT,
+  receipt = null,
   onDone,
 }) {
+  const transactionId = receipt?.transactionId
+    ? String(receipt.transactionId)
+    : "";
+
   async function handleShare() {
     const message = [
       "CASHIE",
@@ -39,7 +34,7 @@ export default function CashiePaymentReceipt({
       `TO: ${receipt.recipientName}`,
       `AMOUNT: ${receipt.amount}`,
       `DATE: ${receipt.date} ${receipt.time}`,
-      `TXN ID: ${receipt.transactionId}`,
+      ...(transactionId ? [`TXN ID: ${transactionId}`] : []),
       "",
       receipt.status,
     ].join("\n");
@@ -52,6 +47,48 @@ export default function CashiePaymentReceipt({
     } catch (error) {
       console.warn("Unable to share receipt:", error);
     }
+  }
+
+  if (!receipt) {
+    return (
+      <View style={styles.wrapper}>
+        <View style={styles.receiptShadow}>
+          <View style={styles.receipt}>
+            <View style={styles.topTear} />
+
+            <Text style={styles.brand}>C A S H I E</Text>
+
+            <Text style={styles.rule}>
+              --------------------------------
+            </Text>
+
+            <Text style={styles.successTitle}>RECEIPT UNAVAILABLE</Text>
+
+            <Text style={styles.rule}>
+              --------------------------------
+            </Text>
+
+            <Text style={styles.emptyText}>
+              No payment details are available for this receipt.
+            </Text>
+
+            <View style={styles.bottomTear} />
+          </View>
+        </View>
+
+        <View style={styles.actions}>
+          <Pressable
+            onPress={onDone}
+            style={({ pressed }) => [
+              styles.doneButton,
+              pressed && styles.buttonPressed,
+            ]}
+          >
+            <Text style={styles.doneButtonText}>DONE</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
   }
 
   return (
@@ -73,13 +110,18 @@ export default function CashiePaymentReceipt({
           </Text>
 
           <View style={styles.details}>
-            <ReceiptRow label="TO:" value={receipt.recipientName.toUpperCase()} />
+            <ReceiptRow
+              label="TO:"
+              value={String(receipt.recipientName || "").toUpperCase()}
+            />
             <ReceiptRow label="AMOUNT:" value={receipt.amount} />
             <ReceiptRow
               label="DATE:"
               value={`${receipt.date}  ${receipt.time}`}
             />
-            <ReceiptRow label="TXN ID:" value={receipt.transactionId} />
+            {transactionId ? (
+              <ReceiptRow label="TXN ID:" value={transactionId} />
+            ) : null}
           </View>
 
           <Text style={styles.rule}>
@@ -258,6 +300,16 @@ const styles = StyleSheet.create({
     fontFamily: "monospace",
     fontSize: 14,
     fontWeight: "800",
+  },
+
+  emptyText: {
+    color: COLORS.muted,
+    fontFamily: "monospace",
+    fontSize: 13,
+    lineHeight: 20,
+    textAlign: "center",
+    marginTop: 14,
+    marginBottom: 6,
   },
 
   thankYou: {

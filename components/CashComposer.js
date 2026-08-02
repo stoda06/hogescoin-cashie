@@ -40,6 +40,12 @@ const FALLBACK_COLOURS = {
 const COLOURS = {
   ...FALLBACK_COLOURS,
   ...(CASHIE_COLOURS || {}),
+
+  // CASHIE_COLOURS.mutedText is a light tan designed for
+  // dark leather backgrounds; this composer renders its
+  // muted text on pale paper, so keep the dark fallback.
+  mutedText:
+    FALLBACK_COLOURS.mutedText,
 };
 
 const KEYPAD_KEYS = [
@@ -305,6 +311,11 @@ export default function CashComposer({
     setDenominationHistory,
   ] = useState([]);
 
+  const [
+    showMaximumHint,
+    setShowMaximumHint,
+  ] = useState(false);
+
   const amountCents =
     normaliseCents(amount);
 
@@ -322,6 +333,27 @@ export default function CashComposer({
         amountCents,
       0
     );
+
+  const noBalance =
+    maximumCents === 0;
+
+  useEffect(() => {
+    if (!showMaximumHint) {
+      return undefined;
+    }
+
+    const timer =
+      setTimeout(
+        () =>
+          setShowMaximumHint(
+            false
+          ),
+        1600
+      );
+
+    return () =>
+      clearTimeout(timer);
+  }, [showMaximumHint]);
 
   useEffect(() => {
     if (isReceive) {
@@ -549,11 +581,18 @@ export default function CashComposer({
     const denomination =
       Number(value) || 0;
 
+    if (denomination <= 0) {
+      return;
+    }
+
     if (
-      denomination <= 0 ||
       denomination >
-        remainingCents
+      remainingCents
     ) {
+      setShowMaximumHint(
+        true
+      );
+
       return;
     }
 
@@ -638,12 +677,21 @@ export default function CashComposer({
     if (
       !Number.isFinite(
         nextCents
-      ) ||
+      )
+    ) {
+      return;
+    }
+
+    if (
       nextCents >
         maximumCents ||
       nextCents >
         MAX_AMOUNT_CENTS
     ) {
+      setShowMaximumHint(
+        true
+      );
+
       return;
     }
 
@@ -733,6 +781,16 @@ export default function CashComposer({
             handleKeyPress
           }
         />
+
+        {showMaximumHint && (
+          <Text
+            style={
+              styles.limitHintText
+            }
+          >
+            Maximum reached
+          </Text>
+        )}
 
         <Pressable
           accessibilityRole="button"
@@ -871,9 +929,9 @@ export default function CashComposer({
                   styles.emptyMethodText
                 }
               >
-                Use coins or the
-                keypad for the
-                remaining amount.
+                {noBalance
+                  ? 'No balance available to pay from.'
+                  : 'Use coins or the keypad for the remaining amount.'}
               </Text>
             )}
           </View>
@@ -909,9 +967,9 @@ export default function CashComposer({
                   styles.emptyMethodText
                 }
               >
-                Use the keypad for
-                the remaining
-                amount.
+                {noBalance
+                  ? 'No balance available to pay from.'
+                  : 'Use the keypad for the remaining amount.'}
               </Text>
             )}
           </View>
@@ -926,6 +984,27 @@ export default function CashComposer({
           />
         )}
       </View>
+
+      {noBalance &&
+      activeMethod ===
+        'keypad' ? (
+        <Text
+          style={
+            styles.noBalanceText
+          }
+        >
+          No balance available to
+          pay from.
+        </Text>
+      ) : showMaximumHint ? (
+        <Text
+          style={
+            styles.limitHintText
+          }
+        >
+          Maximum reached
+        </Text>
+      ) : null}
 
       <View
         style={
@@ -1359,6 +1438,31 @@ const styles =
       textAlign: 'center',
 
       paddingHorizontal: 30,
+    },
+
+    noBalanceText: {
+      color:
+        COLOURS.mutedText,
+
+      fontSize: 12,
+      lineHeight: 18,
+      textAlign: 'center',
+
+      marginTop: 9,
+
+      paddingHorizontal: 30,
+    },
+
+    limitHintText: {
+      color:
+        COLOURS.leather,
+
+      fontSize: 12,
+      lineHeight: 18,
+      fontWeight: '700',
+      textAlign: 'center',
+
+      marginTop: 9,
     },
 
     utilityRow: {

@@ -25,11 +25,11 @@ export const AUD_COINS = [
   { label: '10c', value: 10 },
   { label: '20c', value: 20 },
   { label: '50c', value: 50 },
+  { label: '$1', value: 100 },
+  { label: '$2', value: 200 },
 ];
 
 export const AUD_NOTES = [
-  { label: '$1', value: 100 },
-  { label: '$2', value: 200 },
   { label: '$5', value: 500 },
   { label: '$10', value: 1000 },
   { label: '$20', value: 2000 },
