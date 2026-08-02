@@ -19,6 +19,8 @@ import {
   Ionicons,
 } from '@expo/vector-icons';
 
+import * as Clipboard from 'expo-clipboard';
+
 import CashieBottomNavigation from './CashieBottomNavigation';
 
 const COLORS = {

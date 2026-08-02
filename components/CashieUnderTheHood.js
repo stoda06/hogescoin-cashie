@@ -132,27 +132,25 @@ function ConnectionRow({
 
 export default function CashieUnderTheHood({
   networkName = 'Solana',
-  networkConnected = true,
+  networkConnected = false,
 
-  hogesBalance = 12500,
-  hogesValueAud = 100,
+  hogesBalance = 0,
+  hogesValueAud = 0,
 
-  batterySol = 0.01,
-  batteryValueAud = 2,
+  batterySol = 0,
+  batteryValueAud = 0,
 
-  hogesPerSol = 25000,
-  hogesPerSolAud = 0.008,
-  solPriceAud = 200,
+  hogesPerSol = 0,
+  hogesPerSolAud = 0,
+  solPriceAud = 0,
 
-  walletAddress =
-    'CashieWalletAddress123456789',
+  walletAddress = '',
 
-  depositWalletAddress =
-    'DepositWalletAddress123456789',
+  depositWalletAddress = '',
 
-  priceFeedConnected = true,
-  networkFeedConnected = true,
-  swapFeedConnected = true,
+  priceFeedConnected = false,
+  networkFeedConnected = false,
+  swapFeedConnected = false,
 }) {
   const [
     expanded,
@@ -331,16 +329,22 @@ export default function CashieUnderTheHood({
 
           <DetailRow
             label="Cashie wallet"
-            value={shortenAddress(
-              walletAddress
-            )}
+            value={
+              shortenAddress(
+                walletAddress
+              ) ||
+              'Not available'
+            }
           />
 
           <DetailRow
             label="Deposit wallet"
-            value={shortenAddress(
-              depositWalletAddress
-            )}
+            value={
+              shortenAddress(
+                depositWalletAddress
+              ) ||
+              'Not available'
+            }
           />
 
           <Text

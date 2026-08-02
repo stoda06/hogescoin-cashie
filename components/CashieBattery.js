@@ -95,8 +95,8 @@ function DetailRow({ label, value, showDivider = true }) {
 }
 
 export default function CashieBattery({
-  chargePercent = 96,
-  estimatedPaymentsRemaining = 2143,
+  chargePercent = 0,
+  estimatedPaymentsRemaining = 0,
   estimatedRechargeCostAud = 2,
   variant = "compact",
   onPress,

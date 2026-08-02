@@ -1,6 +1,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -57,6 +58,8 @@ import {
 import {
   TEST_ADDRESS,
 } from './utils/constants.js';
+
+import validateAddress from './utils/validateAddress.js';
 
 const HOGES_MINT_ADDRESS =
   '2GU6q72m9MnYRSsUszUwipLUBMpXm72gijL2VhQAHnyz';
@@ -426,6 +429,11 @@ export default function App() {
     false
   );
 
+  const paymentInFlightRef =
+    useRef(
+      false
+    );
+
   const selectedPerson =
     useMemo(
       () =>
@@ -500,26 +508,25 @@ export default function App() {
       let active =
         true;
 
+      /*
+       * Load stored state and prices independently:
+       * a price failure must never cost us the stored
+       * state, and a failed load must never let the
+       * save effect overwrite it with defaults.
+       */
       async function initialiseApp() {
+        let storedState =
+          null;
+
+        let stateLoaded =
+          false;
+
         try {
-          const [
-            storedState,
-            latestPrices,
-          ] =
-            await Promise.all([
-              loadAppState(),
+          storedState =
+            await loadAppState();
 
-              getPriceSnapshot({
-                displayCurrency:
-                  INITIAL_DISPLAY_CURRENCY,
-
-                solPriceAud:
-                  DEFAULT_SOL_PRICE_AUD,
-
-                hogesPerSol:
-                  DEFAULT_HOGES_PER_SOL,
-              }),
-            ]);
+          stateLoaded =
+            true;
 
           if (
             !active
@@ -623,24 +630,51 @@ export default function App() {
             );
           }
 
-          setPriceSnapshot(
-            latestPrices
-          );
         } catch (
           error
         ) {
           console.warn(
-            'Cashie startup failed:',
+            'Cashie state load failed:',
             error
           );
-        } finally {
+        }
+
+        if (
+          active &&
+          stateLoaded
+        ) {
+          setStorageReady(
+            true
+          );
+        }
+
+        try {
+          const latestPrices =
+            await getPriceSnapshot({
+              displayCurrency:
+                INITIAL_DISPLAY_CURRENCY,
+
+              solPriceAud:
+                DEFAULT_SOL_PRICE_AUD,
+
+              hogesPerSol:
+                DEFAULT_HOGES_PER_SOL,
+            });
+
           if (
             active
           ) {
-            setStorageReady(
-              true
+            setPriceSnapshot(
+              latestPrices
             );
           }
+        } catch (
+          error
+        ) {
+          console.warn(
+            'Cashie price refresh failed:',
+            error
+          );
         }
       }
 
@@ -751,6 +785,9 @@ export default function App() {
   );
 
   function clearPayment() {
+    paymentInFlightRef.current =
+      false;
+
     setRecipient(
       null
     );
@@ -869,6 +906,9 @@ export default function App() {
     ) {
       return;
     }
+
+    paymentInFlightRef.current =
+      false;
 
     setPaymentAmount(
       numericAmount
@@ -990,6 +1030,47 @@ export default function App() {
 
   function completePayment() {
     if (
+      paymentInFlightRef
+        .current
+    ) {
+      return;
+    }
+
+    paymentInFlightRef.current =
+      true;
+
+    const hogesPriceAud =
+      Number(
+        priceSnapshot
+          ?.hogesPriceAud ||
+        0
+      );
+
+    const hogesSpent =
+      hogesPriceAud >
+      0
+        ? paymentAmount /
+          hogesPriceAud
+        : 0;
+
+    setWallet(
+      currentWallet => ({
+        ...currentWallet,
+
+        hogesBalance:
+          Math.max(
+            Number(
+              currentWallet
+                ?.hogesBalance ||
+              0
+            ) -
+              hogesSpent,
+            0
+          ),
+      })
+    );
+
+    if (
       recipientIsKnown()
     ) {
       setCashiePeople(
@@ -1045,6 +1126,19 @@ export default function App() {
       return;
     }
 
+    // Validate here, before the state updater runs:
+    // addCashiePerson throws on a bad address, and a
+    // throw inside setCashiePeople crashes the app.
+    if (
+      !validateAddress(
+        walletAddress
+      )
+    ) {
+      throw new Error(
+        'That does not look like a Solana wallet address.'
+      );
+    }
+
     const newActivity =
       createSentActivity({
         amount:
@@ -1097,6 +1191,19 @@ export default function App() {
       !walletAddress ||
       !name
     ) {
+      return;
+    }
+
+    if (
+      !validateAddress(
+        walletAddress
+      )
+    ) {
+      Alert.alert(
+        'Invalid wallet address',
+        'That does not look like a Solana wallet address.'
+      );
+
       return;
     }
 
@@ -1601,9 +1708,6 @@ export default function App() {
         batteryChargePercent={
           battery.chargePercent
         }
-        batteryStatus={
-          battery.status
-        }
         estimatedPaymentsRemaining={
           battery
             .estimatedPaymentsRemaining
@@ -1650,6 +1754,10 @@ export default function App() {
         hogesPerSolAud={
           priceSnapshot
             .hogesPriceAud
+        }
+        solPriceAud={
+          priceSnapshot
+            .solPriceAud
         }
         totalWalletValueAud={
           walletValue
@@ -1947,8 +2055,15 @@ export default function App() {
               );
 
             if (
-              !walletAddress
+              !validateAddress(
+                walletAddress
+              )
             ) {
+              Alert.alert(
+                'Invalid wallet address',
+                'That does not look like a Solana wallet address.'
+              );
+
               return;
             }
 

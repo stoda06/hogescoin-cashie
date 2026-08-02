@@ -10,6 +10,8 @@ import {
   View,
 } from "react-native";
 
+import validateAddress from "../utils/validateAddress.js";
+
 const COLORS = {
   paper: "#F8F3E8",
   paperDark: "#EEE5D8",
@@ -123,6 +125,13 @@ export default function CashiePersonForm({
 
     if (!cleanWalletAddress) {
       setError("Enter or scan their wallet address.");
+      return;
+    }
+
+    if (!validateAddress(cleanWalletAddress)) {
+      setError(
+        "That does not look like a Solana wallet address. Check it and try again."
+      );
       return;
     }
 

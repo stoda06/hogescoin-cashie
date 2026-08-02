@@ -1,9 +1,16 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 const STORAGE_PREFIX =
   'cashie';
 
 const STORAGE_VERSION =
   1;
 
+/*
+ * Session cache in front of AsyncStorage. Every write
+ * lands here first, so reads stay correct for the rest
+ * of the session even if the device write fails.
+ */
 const memoryStorage =
   new Map();
 
@@ -65,22 +72,6 @@ function getFullKey(
   return `${STORAGE_PREFIX}:v${STORAGE_VERSION}:${key}`;
 }
 
-function hasLocalStorage() {
-  try {
-    return (
-      typeof globalThis !==
-        'undefined' &&
-      globalThis.localStorage &&
-      typeof globalThis
-        .localStorage
-        .getItem ===
-        'function'
-    );
-  } catch {
-    return false;
-  }
-}
-
 function serialise(
   value
 ) {
@@ -118,30 +109,22 @@ async function readRawValue(
     );
 
   if (
-    hasLocalStorage()
+    memoryStorage.has(
+      fullKey
+    )
   ) {
-    try {
-      return globalThis
-        .localStorage
-        .getItem(
-          fullKey
-        );
-    } catch {
-      return (
-        memoryStorage.get(
-          fullKey
-        ) ??
-        null
-      );
-    }
+    return memoryStorage.get(
+      fullKey
+    );
   }
 
-  return (
-    memoryStorage.get(
+  try {
+    return await AsyncStorage.getItem(
       fullKey
-    ) ??
-    null
-  );
+    );
+  } catch {
+    return null;
+  }
 }
 
 async function writeRawValue(
@@ -153,32 +136,19 @@ async function writeRawValue(
       key
     );
 
-  if (
-    hasLocalStorage()
-  ) {
-    try {
-      globalThis
-        .localStorage
-        .setItem(
-          fullKey,
-          value
-        );
-
-      return true;
-    } catch {
-      memoryStorage.set(
-        fullKey,
-        value
-      );
-
-      return true;
-    }
-  }
-
   memoryStorage.set(
     fullKey,
     value
   );
+
+  try {
+    await AsyncStorage.setItem(
+      fullKey,
+      value
+    );
+  } catch {
+    // The session cache above still serves reads.
+  }
 
   return true;
 }
@@ -191,23 +161,17 @@ async function removeRawValue(
       key
     );
 
-  if (
-    hasLocalStorage()
-  ) {
-    try {
-      globalThis
-        .localStorage
-        .removeItem(
-          fullKey
-        );
-    } catch {
-      // Memory fallback
-    }
-  }
-
   memoryStorage.delete(
     fullKey
   );
+
+  try {
+    await AsyncStorage.removeItem(
+      fullKey
+    );
+  } catch {
+    // Nothing more we can do here.
+  }
 
   return true;
 }

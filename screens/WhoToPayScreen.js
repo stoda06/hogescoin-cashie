@@ -18,6 +18,8 @@ import {
   Ionicons,
 } from '@expo/vector-icons';
 
+import validateAddress from '../utils/validateAddress.js';
+
 const COLORS = {
   paper: '#F8F4EA',
   paperDark: '#EFE8DA',
@@ -257,6 +259,18 @@ export default function WhoToPayScreen({
     ) {
       setAddressError(
         'Enter a wallet address.'
+      );
+
+      return;
+    }
+
+    if (
+      !validateAddress(
+        cleanedAddress
+      )
+    ) {
+      setAddressError(
+        'That does not look like a Solana wallet address. Check it and try again.'
       );
 
       return;

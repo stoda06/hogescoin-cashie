@@ -4,6 +4,7 @@ import React, {
 } from 'react';
 
 import {
+  Alert,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -289,6 +290,12 @@ export default function PaymentCompleteScreen({
       console.error(
         'Unable to save Cashie Person:',
         error
+      );
+
+      Alert.alert(
+        'Unable to save',
+        error?.message ||
+          'Cashie could not save this person. Please try again.'
       );
     } finally {
       setIsSaving(false);
