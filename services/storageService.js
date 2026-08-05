@@ -1,9 +1,16 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 const STORAGE_PREFIX =
   'cashie';
 
 const STORAGE_VERSION =
   1;
 
+/*
+ * Session cache in front of AsyncStorage. Every write
+ * lands here first, so reads stay correct for the rest
+ * of the session even if the device write fails.
+ */
 const memoryStorage =
   new Map();
 
@@ -65,20 +72,28 @@ function getFullKey(
   return `${STORAGE_PREFIX}:v${STORAGE_VERSION}:${key}`;
 }
 
-function hasLocalStorage() {
-  try {
-    return (
-      typeof globalThis !==
-        'undefined' &&
-      globalThis.localStorage &&
-      typeof globalThis
-        .localStorage
-        .getItem ===
-        'function'
+/*
+ * Number(garbage) is NaN and Math.max(0, NaN) is NaN,
+ * which JSON.stringify turns into null. Guard every
+ * numeric field with Number.isFinite instead.
+ */
+function toNonNegativeNumber(
+  value,
+  fallback = 0
+) {
+  const numericValue =
+    Number(
+      value
     );
-  } catch {
-    return false;
-  }
+
+  return Number.isFinite(
+    numericValue
+  )
+    ? Math.max(
+        0,
+        numericValue
+      )
+    : fallback;
 }
 
 function serialise(
@@ -118,30 +133,22 @@ async function readRawValue(
     );
 
   if (
-    hasLocalStorage()
+    memoryStorage.has(
+      fullKey
+    )
   ) {
-    try {
-      return globalThis
-        .localStorage
-        .getItem(
-          fullKey
-        );
-    } catch {
-      return (
-        memoryStorage.get(
-          fullKey
-        ) ??
-        null
-      );
-    }
+    return memoryStorage.get(
+      fullKey
+    );
   }
 
-  return (
-    memoryStorage.get(
+  try {
+    return await AsyncStorage.getItem(
       fullKey
-    ) ??
-    null
-  );
+    );
+  } catch {
+    return null;
+  }
 }
 
 async function writeRawValue(
@@ -153,32 +160,19 @@ async function writeRawValue(
       key
     );
 
-  if (
-    hasLocalStorage()
-  ) {
-    try {
-      globalThis
-        .localStorage
-        .setItem(
-          fullKey,
-          value
-        );
-
-      return true;
-    } catch {
-      memoryStorage.set(
-        fullKey,
-        value
-      );
-
-      return true;
-    }
-  }
-
   memoryStorage.set(
     fullKey,
     value
   );
+
+  try {
+    await AsyncStorage.setItem(
+      fullKey,
+      value
+    );
+  } catch {
+    // The session cache above still serves reads.
+  }
 
   return true;
 }
@@ -191,23 +185,17 @@ async function removeRawValue(
       key
     );
 
-  if (
-    hasLocalStorage()
-  ) {
-    try {
-      globalThis
-        .localStorage
-        .removeItem(
-          fullKey
-        );
-    } catch {
-      // Memory fallback
-    }
-  }
-
   memoryStorage.delete(
     fullKey
   );
+
+  try {
+    await AsyncStorage.removeItem(
+      fullKey
+    );
+  } catch {
+    // Nothing more we can do here.
+  }
 
   return true;
 }
@@ -277,15 +265,15 @@ export async function saveWallet(
 ) {
   const safeWallet = {
     solBalance:
-      Number(
-        wallet.solBalance ||
-          0
+      toNonNegativeNumber(
+        wallet.solBalance,
+        0
       ),
 
     hogesBalance:
-      Number(
-        wallet.hogesBalance ||
-          0
+      toNonNegativeNumber(
+        wallet.hogesBalance,
+        0
       ),
 
     publicAddress:
@@ -325,17 +313,17 @@ export async function loadWallet(
     ...storedWallet,
 
     solBalance:
-      Number(
+      toNonNegativeNumber(
         storedWallet
-          ?.solBalance ||
-          0
+          ?.solBalance,
+        0
       ),
 
     hogesBalance:
-      Number(
+      toNonNegativeNumber(
         storedWallet
-          ?.hogesBalance ||
-          0
+          ?.hogesBalance,
+        0
       ),
 
     publicAddress:
@@ -483,12 +471,9 @@ export async function savePaymentsMade(
   paymentsMade = 0
 ) {
   const safePaymentsMade =
-    Math.max(
-      0,
-      Number(
-        paymentsMade ||
-          0
-      )
+    toNonNegativeNumber(
+      paymentsMade,
+      0
     );
 
   return setStoredValue(
@@ -712,12 +697,9 @@ export async function saveAppState(
         : [],
 
     paymentsMade:
-      Math.max(
-        0,
-        Number(
-          appState.paymentsMade ||
-            0
-        )
+      toNonNegativeNumber(
+        appState.paymentsMade,
+        0
       ),
 
     memberSince:
@@ -733,12 +715,9 @@ export async function saveAppState(
         .toUpperCase(),
 
     batteryReminderAud:
-      Math.max(
-        0,
-        Number(
-          appState.batteryReminderAud ||
-            0
-        )
+      toNonNegativeNumber(
+        appState.batteryReminderAud,
+        0
       ),
 
     savedAt:
@@ -771,9 +750,23 @@ export async function loadAppState(
     };
   }
 
+  /*
+   * Sanitise every field the app consumes the same
+   * way saveAppState validates on the way in, so a
+   * corrupted stored blob can never leak malformed
+   * values into the app state.
+   */
   return {
     ...fallback,
     ...storedState,
+
+    wallet:
+      storedState?.wallet &&
+      typeof storedState.wallet ===
+        'object'
+        ? storedState.wallet
+        : fallback?.wallet ||
+          null,
 
     walletName:
       String(
@@ -788,6 +781,83 @@ export async function loadAppState(
           0,
           60
         ),
+
+    walletActivated:
+      Boolean(
+        storedState
+          ?.walletActivated ??
+          fallback
+            ?.walletActivated
+      ),
+
+    cashiePeople:
+      Array.isArray(
+        storedState
+          ?.cashiePeople
+      )
+        ? storedState.cashiePeople
+        : Array.isArray(
+            fallback
+              ?.cashiePeople
+          )
+          ? fallback.cashiePeople
+          : [],
+
+    activities:
+      Array.isArray(
+        storedState
+          ?.activities
+      )
+        ? storedState.activities
+        : Array.isArray(
+            fallback
+              ?.activities
+          )
+          ? fallback.activities
+          : [],
+
+    paymentsMade:
+      toNonNegativeNumber(
+        storedState
+          ?.paymentsMade,
+        toNonNegativeNumber(
+          fallback
+            ?.paymentsMade,
+          0
+        )
+      ),
+
+    memberSince:
+      storedState
+        ?.memberSince
+        ? String(
+            storedState.memberSince
+          )
+        : fallback
+            ?.memberSince ||
+          null,
+
+    selectedCurrency:
+      String(
+        storedState
+          ?.selectedCurrency ||
+          fallback
+            ?.selectedCurrency ||
+          'AUD'
+      )
+        .trim()
+        .toUpperCase(),
+
+    batteryReminderAud:
+      toNonNegativeNumber(
+        storedState
+          ?.batteryReminderAud,
+        toNonNegativeNumber(
+          fallback
+            ?.batteryReminderAud,
+          0
+        )
+      ),
   };
 }
 

@@ -115,7 +115,13 @@ export function parseActivityAmount(
     return 0;
   }
 
-  return numericValue;
+  /*
+   * Payment amounts are magnitudes, so a stray minus
+   * sign must never produce a negative amount.
+   */
+  return Math.abs(
+    numericValue
+  );
 }
 
 export function createSentActivity({
@@ -132,7 +138,10 @@ export function createSentActivity({
     Number.isFinite(
       numericAmount
     )
-      ? numericAmount
+      ? Math.max(
+          0,
+          numericAmount
+        )
       : 0;
 
   const createdAt =
@@ -506,6 +515,7 @@ export function updateCashiePerson(
   const cleanWalletAddress =
     normaliseWalletAddress(
       changes.walletAddress ??
+        changes.address ??
         existingPerson.walletAddress
     );
 
@@ -556,9 +566,24 @@ export function updateCashiePerson(
     };
   }
 
+  /*
+   * Only whitelisted fields may be applied. Any other
+   * key in the changes object is dropped so callers
+   * cannot inject or overwrite internal state.
+   */
+  const activityProvided =
+    Array.isArray(
+      changes.activity
+    );
+
+  const nextActivity =
+    activityProvided
+      ? changes.activity
+      : existingPerson.activity ||
+        [];
+
   const updatedPerson = {
     ...existingPerson,
-    ...changes,
 
     id:
       existingPerson.id,
@@ -574,13 +599,50 @@ export function updateCashiePerson(
     walletAddress:
       cleanWalletAddress,
 
+    lastPaidAt:
+      changes.lastPaidAt !==
+      undefined
+        ? String(
+            changes.lastPaidAt ||
+              ''
+          )
+        : existingPerson.lastPaidAt ||
+          '',
+
     activity:
-      Array.isArray(
-        changes.activity
-      )
-        ? changes.activity
-        : existingPerson.activity ||
-          [],
+      nextActivity,
+
+    paymentCount:
+      activityProvided
+        ? nextActivity.length
+        : Number(
+            existingPerson.paymentCount ||
+              0
+          ),
+
+    paymentsSent:
+      activityProvided
+        ? nextActivity.filter(
+            item =>
+              item?.type ===
+              'sent'
+          ).length
+        : Number(
+            existingPerson.paymentsSent ||
+              0
+          ),
+
+    paymentsReceived:
+      activityProvided
+        ? nextActivity.filter(
+            item =>
+              item?.type ===
+              'received'
+          ).length
+        : Number(
+            existingPerson.paymentsReceived ||
+              0
+          ),
   };
 
   return {

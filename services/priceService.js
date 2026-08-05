@@ -668,12 +668,43 @@ export async function getPriceSnapshot({
       displayCurrency
     );
 
+  /*
+   * Normalise the injected prices the same way
+   * createPriceSnapshot does, so the cache is only
+   * served when it was built from the same inputs.
+   * Otherwise freshly injected prices would be
+   * silently discarded for the cache TTL.
+   */
+  const safeSolPriceAud =
+    Math.max(
+      0,
+      toSafeNumber(
+        solPriceAud,
+        DEFAULT_SOL_PRICE_AUD
+      )
+    );
+
+  const safeHogesPerSol =
+    Math.max(
+      0,
+      toSafeNumber(
+        hogesPerSol,
+        DEFAULT_HOGES_PER_SOL
+      )
+    );
+
   if (
     !forceRefresh &&
     cachedPriceSnapshot &&
     cachedPriceSnapshot
       .displayCurrency ===
       safeDisplayCurrency &&
+    cachedPriceSnapshot
+      .solPriceAud ===
+      safeSolPriceAud &&
+    cachedPriceSnapshot
+      .hogesPerSol ===
+      safeHogesPerSol &&
     isSnapshotFresh()
   ) {
     return {

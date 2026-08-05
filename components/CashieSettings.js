@@ -19,6 +19,8 @@ import {
   Ionicons,
 } from '@expo/vector-icons';
 
+import * as Clipboard from 'expo-clipboard';
+
 import CashieBottomNavigation from './CashieBottomNavigation';
 import CashiePageHeader from './CashiePageHeader.js';
 
@@ -1329,7 +1331,7 @@ export default function CashieSettings({
         styles.screen
       }
     >
-            <CashiePageHeader
+      <CashiePageHeader
         title="SETTINGS"
         icon="back"
         onIconPress={

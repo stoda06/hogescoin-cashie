@@ -1,3 +1,6 @@
+const BASE58_ADDRESS_PATTERN =
+  /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
 export default function validateAddress(address) {
   if (typeof address !== 'string') {
     return false;
@@ -5,7 +8,8 @@ export default function validateAddress(address) {
 
   const cleanedAddress = address.trim();
 
-  // Prototype validation only.
-  // Real Solana address validation will replace this later.
-  return cleanedAddress.length >= 8;
+  // Solana addresses are 32-44 characters of base58
+  // (no 0, O, I or l). This does not verify the address
+  // exists on-chain, only that it is well formed.
+  return BASE58_ADDRESS_PATTERN.test(cleanedAddress);
 }
