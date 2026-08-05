@@ -2,15 +2,27 @@ import React, {
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from 'react';
 
 import {
+  Alert,
   Animated,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+
+import {
+  Ionicons,
+} from '@expo/vector-icons';
+
+import {
+  captureRef,
+} from 'react-native-view-shot';
+
+import * as Sharing from 'expo-sharing';
 
 import QRCode from 'react-native-qrcode-svg';
 
@@ -49,8 +61,11 @@ function formatMoney(
   ).toLocaleString(
     'en-AU',
     {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      minimumFractionDigits:
+        2,
+
+      maximumFractionDigits:
+        2,
     }
   )}`;
 }
@@ -60,7 +75,8 @@ function shortenAddress(
 ) {
   const cleanAddress =
     String(
-      address || ''
+      address ||
+        ''
     ).trim();
 
   if (
@@ -88,7 +104,8 @@ function cleanWalletName(
   walletName
 ) {
   return String(
-    walletName || ''
+    walletName ||
+      ''
   )
     .replace(
       /\s+/g,
@@ -104,10 +121,21 @@ function cleanWalletName(
 function createCashieQrPayload({
   walletName,
   walletAddress,
+  requestedAmount,
+  currencyCode,
 }) {
+  const numericAmount =
+    Number(
+      requestedAmount ||
+        0
+    );
+
   return JSON.stringify({
-    type: 'cashie-wallet',
-    version: 1,
+    type:
+      'cashie-payment',
+
+    version:
+      1,
 
     walletName:
       cleanWalletName(
@@ -116,18 +144,44 @@ function createCashieQrPayload({
 
     walletAddress:
       String(
-        walletAddress || ''
+        walletAddress ||
+          ''
       ).trim(),
+
+    amount:
+      numericAmount >
+      0
+        ? numericAmount
+        : null,
+
+    currencyCode:
+      String(
+        currencyCode ||
+          'AUD'
+      ).toUpperCase(),
   });
+}
+
+function waitForNextFrame() {
+  return new Promise(
+    resolve => {
+      requestAnimationFrame(
+        () => {
+          requestAnimationFrame(
+            resolve
+          );
+        }
+      );
+    }
+  );
 }
 
 function CurrencyPin({
   currencyCode,
+  currencyFlag,
   onPress,
-}) {
-  const isAud =
-    currencyCode ===
-    'AUD';
+}) 
+{
 
   return (
     <Pressable
@@ -155,23 +209,13 @@ function CurrencyPin({
           styles.currencyPinInner
         }
       >
-        {isAud ? (
-          <Text
-            style={
-              styles.currencyFlag
-            }
-          >
-            🇦🇺
-          </Text>
-        ) : (
-          <Text
-            style={
-              styles.currencyCode
-            }
-          >
-            {currencyCode}
-          </Text>
-        )}
+        <Text
+  style={
+    styles.currencyFlag
+  }
+>
+  {currencyFlag}
+</Text>
       </View>
     </Pressable>
   );
@@ -325,6 +369,8 @@ function CardAction({
 function CashieQrCode({
   walletName,
   walletAddress,
+  requestedAmount,
+  currencyCode,
 }) {
   const qrValue =
     useMemo(
@@ -332,10 +378,14 @@ function CashieQrCode({
         createCashieQrPayload({
           walletName,
           walletAddress,
+          requestedAmount,
+          currencyCode,
         }),
       [
         walletName,
         walletAddress,
+        requestedAmount,
+        currencyCode,
       ]
     );
 
@@ -398,9 +448,10 @@ function PaySide({
   cashieBalance,
   currencyCode,
   currencySymbol,
+  currencyFlag,
   onCurrencyPress,
   onPay,
-  onMerchant,
+  onTapOrScan,
 }) {
   const displayedWalletName =
     cleanWalletName(
@@ -419,12 +470,16 @@ function PaySide({
         }
       >
         <CurrencyPin
-          currencyCode={
-            currencyCode
+        currencyCode={
+        currencyCode
+        }
+        currencyFlag={
+        currencyFlag
+        }
+        onPress={
+        onCurrencyPress
           }
-          onPress={
-            onCurrencyPress
-          }
+          
         />
 
         <View
@@ -490,9 +545,9 @@ function PaySide({
 
         <CardAction
           type="scanner"
-          title="SCAN MERCHANT QR"
+          title="TAP OR SCAN"
           onPress={
-            onMerchant
+            onTapOrScan
           }
           showDivider={
             false
@@ -507,15 +562,20 @@ function ReceiveSide({
   walletName,
   walletAddress,
   requestedAmount,
+  currencyCode,
   currencySymbol,
   onAddAmount,
   onCopyAddress,
+  onShare,
+  shareButtonVisible,
+  isSharing,
 }) {
   const amountSet =
     Number(
       requestedAmount ||
         0
-    ) > 0;
+    ) >
+    0;
 
   const displayedWalletName =
     cleanWalletName(
@@ -533,15 +593,11 @@ function ReceiveSide({
           styles.receiveHeader
         }
       >
-        <Text
+        <View
           style={
-            styles.receiveTitle
+            styles.receiveHeaderCopy
           }
         >
-          RECEIVE PAYMENT
-        </Text>
-
-        {displayedWalletName ? (
           <Text
             numberOfLines={
               1
@@ -551,12 +607,73 @@ function ReceiveSide({
               0.72
             }
             style={
-              styles.receiveWalletName
+              styles.receiveTitle
             }
           >
-            {displayedWalletName}
+            REQUEST PAYMENT
           </Text>
-        ) : null}
+
+          {displayedWalletName ? (
+            <Text
+              numberOfLines={
+                1
+              }
+              adjustsFontSizeToFit
+              minimumFontScale={
+                0.72
+              }
+              style={
+                styles.receiveWalletName
+              }
+            >
+              {displayedWalletName}
+            </Text>
+          ) : null}
+        </View>
+
+        {shareButtonVisible ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Share Cashie payment request"
+            disabled={
+              isSharing
+            }
+            onPress={
+              onShare
+            }
+            style={({
+              pressed,
+            }) => [
+              styles.shareButton,
+
+              pressed &&
+                styles.controlPressed,
+
+              isSharing &&
+                styles.shareButtonDisabled,
+            ]}
+          >
+            <Ionicons
+              name={
+                isSharing
+                  ? 'ellipsis-horizontal'
+                  : 'share-outline'
+              }
+              size={
+                20
+              }
+              color={
+                COLOURS.lightCream
+              }
+            />
+          </Pressable>
+        ) : (
+          <View
+            style={
+              styles.shareButtonPlaceholder
+            }
+          />
+        )}
       </View>
 
       <View
@@ -571,6 +688,12 @@ function ReceiveSide({
           walletAddress={
             walletAddress
           }
+          requestedAmount={
+            requestedAmount
+          }
+          currencyCode={
+            currencyCode
+          }
         />
 
         <View
@@ -578,13 +701,6 @@ function ReceiveSide({
             styles.receiveDetails
           }
         >
-          <Text
-            style={
-              styles.receiveLabel
-            }
-          >
-            AMOUNT
-          </Text>
 
           <Text
             numberOfLines={
@@ -710,12 +826,13 @@ export default function CashieCard({
   cashieBalance = 0,
   currencyCode = 'AUD',
   currencySymbol = '$',
+  currencyFlag = '🇦🇺',
 
   requestedAmount = 0,
 
   onCurrencyPress,
   onPay,
-  onMerchant,
+  onTapOrScan,
   onAddAmount,
   onCopyAddress,
 }) {
@@ -729,40 +846,140 @@ export default function CashieCard({
       )
     ).current;
 
+  const receiveCardRef =
+    useRef(
+      null
+    );
+
+  const [
+    shareButtonVisible,
+    setShareButtonVisible,
+  ] = useState(
+    true
+  );
+
+  const [
+    isSharing,
+    setIsSharing,
+  ] = useState(
+    false
+  );
+
   const showingReceive =
     side ===
     'receive';
 
   useEffect(
     () => {
-      const flipAnimation =
-        Animated.timing(
-          flipProgress,
-          {
-            toValue:
-              showingReceive
-                ? 1
-                : 0,
+      Animated.timing(
+        flipProgress,
+        {
+          toValue:
+            showingReceive
+              ? 1
+              : 0,
 
-            duration:
-              520,
+          duration:
+            520,
 
-            useNativeDriver:
-              true,
-          }
-        );
-
-      flipAnimation.start();
-
-      return () => {
-        flipAnimation.stop();
-      };
+          useNativeDriver:
+            true,
+        }
+      ).start();
     },
     [
       flipProgress,
       showingReceive,
     ]
   );
+
+  async function handleSharePaymentRequest() {
+    if (
+      isSharing ||
+      !receiveCardRef.current
+    ) {
+      return;
+    }
+
+    try {
+      setIsSharing(
+        true
+      );
+
+      setShareButtonVisible(
+        false
+      );
+
+      await waitForNextFrame();
+
+      const imageUri =
+        await captureRef(
+          receiveCardRef.current,
+          {
+            format:
+              'png',
+
+            quality:
+              1,
+
+            result:
+              'tmpfile',
+          }
+        );
+
+      setShareButtonVisible(
+        true
+      );
+
+      const sharingAvailable =
+        await Sharing.isAvailableAsync();
+
+      if (
+        !sharingAvailable
+      ) {
+        Alert.alert(
+          'Sharing Unavailable',
+          'This device cannot currently open the share menu.'
+        );
+
+        return;
+      }
+
+      await Sharing.shareAsync(
+        imageUri,
+        {
+          mimeType:
+            'image/png',
+
+          dialogTitle:
+            'Share Cashie payment request',
+
+          UTI:
+            'public.png',
+        }
+      );
+    } catch (
+      error
+    ) {
+      console.warn(
+        'Cashie payment request share failed:',
+        error
+      );
+
+      Alert.alert(
+        'Unable to Share',
+        'Cashie could not create the payment request image. Please try again.'
+      );
+    } finally {
+      setShareButtonVisible(
+        true
+      );
+
+      setIsSharing(
+        false
+      );
+    }
+  }
 
   const frontRotation =
     flipProgress.interpolate({
@@ -840,19 +1057,28 @@ export default function CashieCard({
             currencySymbol={
               currencySymbol
             }
+            currencyFlag={
+            currencyFlag
+            }
             onCurrencyPress={
               onCurrencyPress
             }
             onPay={
               onPay
             }
-            onMerchant={
-              onMerchant
+            onTapOrScan={
+              onTapOrScan
             }
           />
         </Animated.View>
 
         <Animated.View
+          ref={
+            receiveCardRef
+          }
+          collapsable={
+            false
+          }
           pointerEvents={
             showingReceive
               ? 'auto'
@@ -888,6 +1114,9 @@ export default function CashieCard({
             requestedAmount={
               requestedAmount
             }
+            currencyCode={
+              currencyCode
+            }
             currencySymbol={
               currencySymbol
             }
@@ -896,6 +1125,15 @@ export default function CashieCard({
             }
             onCopyAddress={
               onCopyAddress
+            }
+            onShare={
+              handleSharePaymentRequest
+            }
+            shareButtonVisible={
+              shareButtonVisible
+            }
+            isSharing={
+              isSharing
             }
           />
         </Animated.View>
@@ -907,433 +1145,737 @@ export default function CashieCard({
 const styles =
   StyleSheet.create({
     wrapper: {
-      width: '100%',
+      width:
+        '100%',
     },
 
     cardStage: {
-      width: '100%',
-      aspectRatio: 1.586,
-      position: 'relative',
+      width:
+        '100%',
+
+      aspectRatio:
+        1.586,
+
+      position:
+        'relative',
     },
 
     cardFace: {
       ...StyleSheet.absoluteFillObject,
 
-      overflow: 'hidden',
+      overflow:
+        'hidden',
 
       backgroundColor:
         COLOURS.darkLeather,
 
-      borderWidth: 2,
+      borderWidth:
+        2,
+
       borderColor:
         COLOURS.copperDark,
 
-      borderRadius: 22,
+      borderRadius:
+        22,
 
-      paddingHorizontal: 21,
-      paddingTop: 17,
-      paddingBottom: 17,
+      paddingHorizontal:
+        21,
+
+      paddingTop:
+        17,
+
+      paddingBottom:
+        17,
 
       shadowColor:
         COLOURS.shadow,
 
       shadowOffset: {
-        width: 0,
-        height: 8,
+        width:
+          0,
+
+        height:
+          8,
       },
 
-      shadowOpacity: 0.27,
-      shadowRadius: 13,
-      elevation: 10,
+      shadowOpacity:
+        0.27,
+
+      shadowRadius:
+        13,
+
+      elevation:
+        10,
 
       backfaceVisibility:
         'hidden',
     },
 
     stitching: {
-      position: 'absolute',
+      position:
+        'absolute',
 
-      top: 9,
-      right: 9,
-      bottom: 9,
-      left: 9,
+      top:
+        9,
 
-      borderWidth: 1,
-      borderStyle: 'dashed',
+      right:
+        9,
+
+      bottom:
+        9,
+
+      left:
+        9,
+
+      borderWidth:
+        1,
+
+      borderStyle:
+        'dashed',
+
       borderColor:
         COLOURS.copper,
 
-      borderRadius: 15,
-      opacity: 0.68,
+      borderRadius:
+        15,
+
+      opacity:
+        0.68,
     },
 
     sideContent: {
-      flex: 1,
+      flex:
+        1,
     },
 
     balanceRow: {
-      height: 61,
+      height:
+        61,
 
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection:
+        'row',
 
-      paddingHorizontal: 5,
+      alignItems:
+        'center',
+
+      paddingHorizontal:
+        5,
     },
 
     balanceDetails: {
-      flex: 1,
-      justifyContent: 'center',
-      minWidth: 0,
+      flex:
+        1,
+
+      justifyContent:
+        'center',
+
+      minWidth:
+        0,
     },
 
     walletName: {
       color:
         COLOURS.copperLight,
 
-      fontSize: 11,
-      lineHeight: 14,
-      fontWeight: '800',
-      letterSpacing: 0.7,
+      fontSize:
+        11,
 
-      marginBottom: 1,
+      lineHeight:
+        14,
+
+      fontWeight:
+        '800',
+
+      letterSpacing:
+        0.7,
+
+      marginBottom:
+        1,
     },
 
     currencyPin: {
-      width: 44,
-      height: 44,
+      width:
+        44,
 
-      alignItems: 'center',
-      justifyContent: 'center',
+      height:
+        44,
 
-      borderRadius: 22,
+      alignItems:
+        'center',
 
-      borderWidth: 3,
+      justifyContent:
+        'center',
+
+      borderRadius:
+        22,
+
+      borderWidth:
+        3,
+
       borderColor:
         COLOURS.copper,
 
       backgroundColor:
         COLOURS.copperDark,
 
-      marginRight: 12,
+      marginRight:
+        12,
 
-      shadowColor: '#120804',
+      shadowColor:
+        '#120804',
 
       shadowOffset: {
-        width: 0,
-        height: 3,
+        width:
+          0,
+
+        height:
+          3,
       },
 
-      shadowOpacity: 0.34,
-      shadowRadius: 4,
-      elevation: 5,
+      shadowOpacity:
+        0.34,
+
+      shadowRadius:
+        4,
+
+      elevation:
+        5,
     },
 
     currencyPinPressed: {
       transform: [
         {
-          scale: 0.95,
+          scale:
+            0.95,
         },
       ],
     },
 
     currencyPinInner: {
-      width: 34,
-      height: 34,
+      width:
+        34,
 
-      alignItems: 'center',
-      justifyContent: 'center',
+      height:
+        34,
 
-      overflow: 'hidden',
+      alignItems:
+        'center',
 
-      borderRadius: 17,
+      justifyContent:
+        'center',
+
+      overflow:
+        'hidden',
+
+      borderRadius:
+        17,
 
       backgroundColor:
         '#171A41',
     },
 
     currencyFlag: {
-      fontSize: 25,
-      lineHeight: 30,
+      fontSize:
+        25,
+
+      lineHeight:
+        30,
     },
 
     currencyCode: {
       color:
         COLOURS.lightCream,
 
-      fontSize: 9,
-      fontWeight: '900',
+      fontSize:
+        9,
+
+      fontWeight:
+        '900',
     },
 
     balanceAmount: {
       color:
         COLOURS.lightCream,
 
-      fontSize: 33,
-      lineHeight: 37,
-      fontWeight: '800',
-      letterSpacing: -0.8,
+      fontSize:
+        33,
+
+      lineHeight:
+        37,
+
+      fontWeight:
+        '800',
+
+      letterSpacing:
+        -0.8,
     },
 
     balanceDivider: {
-      height: 1,
+      height:
+        1,
 
       backgroundColor:
         COLOURS.copper,
 
-      opacity: 0.5,
+      opacity:
+        0.5,
 
-      marginHorizontal: 5,
+      marginHorizontal:
+        5,
     },
 
     actions: {
-      flex: 1,
+      flex:
+        1,
 
       justifyContent:
         'space-evenly',
 
-      paddingHorizontal: 5,
+      paddingHorizontal:
+        5,
     },
 
     actionRow: {
-      height: 52,
+      height:
+        52,
 
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection:
+        'row',
+
+      alignItems:
+        'center',
     },
 
     actionRowPressed: {
-      opacity: 0.6,
+      opacity:
+        0.6,
 
       transform: [
         {
-          translateX: 1,
+          translateX:
+            1,
         },
       ],
     },
 
     actionRowDisabled: {
-      opacity: 0.34,
+      opacity:
+        0.34,
     },
 
     actionMedallion: {
-      width: 36,
-      height: 36,
+      width:
+        36,
 
-      alignItems: 'center',
-      justifyContent: 'center',
+      height:
+        36,
 
-      borderRadius: 18,
+      alignItems:
+        'center',
 
-      borderWidth: 1.5,
+      justifyContent:
+        'center',
+
+      borderRadius:
+        18,
+
+      borderWidth:
+        1.5,
+
       borderColor:
         COLOURS.copper,
 
       backgroundColor:
         COLOURS.leather,
 
-      marginRight: 13,
+      marginRight:
+        13,
     },
 
     actionTitle: {
-      flex: 1,
+      flex:
+        1,
 
       color:
         COLOURS.lightCream,
 
-      fontSize: 14,
-      fontWeight: '800',
-      letterSpacing: 0.3,
+      fontSize:
+        14,
+
+      fontWeight:
+        '800',
+
+      letterSpacing:
+        0.3,
     },
 
     actionChevron: {
       color:
         COLOURS.copperLight,
 
-      fontSize: 29,
-      fontWeight: '300',
-      lineHeight: 31,
+      fontSize:
+        29,
 
-      paddingLeft: 8,
+      fontWeight:
+        '300',
+
+      lineHeight:
+        31,
+
+      paddingLeft:
+        8,
     },
 
     actionDivider: {
-      height: 1,
+      height:
+        1,
 
       backgroundColor:
         COLOURS.copper,
 
-      opacity: 0.4,
+      opacity:
+        0.4,
 
-      marginLeft: 49,
+      marginLeft:
+        49,
     },
 
     personIcon: {
-      width: 19,
-      height: 21,
+      width:
+        19,
 
-      alignItems: 'center',
+      height:
+        21,
+
+      alignItems:
+        'center',
     },
 
     personHead: {
-      width: 8,
-      height: 8,
+      width:
+        8,
 
-      borderRadius: 4,
+      height:
+        8,
+
+      borderRadius:
+        4,
 
       backgroundColor:
         COLOURS.lightCream,
     },
 
     personBody: {
-      width: 17,
-      height: 10,
+      width:
+        17,
 
-      marginTop: 2,
+      height:
+        10,
 
-      borderTopLeftRadius: 9,
-      borderTopRightRadius: 9,
-      borderBottomLeftRadius: 3,
-      borderBottomRightRadius: 3,
+      marginTop:
+        2,
+
+      borderTopLeftRadius:
+        9,
+
+      borderTopRightRadius:
+        9,
+
+      borderBottomLeftRadius:
+        3,
+
+      borderBottomRightRadius:
+        3,
 
       backgroundColor:
         COLOURS.lightCream,
     },
 
     scannerIcon: {
-      width: 20,
-      height: 20,
+      width:
+        20,
 
-      position: 'relative',
+      height:
+        20,
+
+      position:
+        'relative',
     },
 
     scannerCorner: {
-      position: 'absolute',
+      position:
+        'absolute',
 
-      width: 7,
-      height: 7,
+      width:
+        7,
+
+      height:
+        7,
 
       borderColor:
         COLOURS.lightCream,
     },
 
     scannerTopLeft: {
-      top: 0,
-      left: 0,
+      top:
+        0,
 
-      borderTopWidth: 2,
-      borderLeftWidth: 2,
+      left:
+        0,
+
+      borderTopWidth:
+        2,
+
+      borderLeftWidth:
+        2,
     },
 
     scannerTopRight: {
-      top: 0,
-      right: 0,
+      top:
+        0,
 
-      borderTopWidth: 2,
-      borderRightWidth: 2,
+      right:
+        0,
+
+      borderTopWidth:
+        2,
+
+      borderRightWidth:
+        2,
     },
 
     scannerBottomLeft: {
-      bottom: 0,
-      left: 0,
+      bottom:
+        0,
 
-      borderBottomWidth: 2,
-      borderLeftWidth: 2,
+      left:
+        0,
+
+      borderBottomWidth:
+        2,
+
+      borderLeftWidth:
+        2,
     },
 
     scannerBottomRight: {
-      right: 0,
-      bottom: 0,
+      right:
+        0,
 
-      borderRightWidth: 2,
-      borderBottomWidth: 2,
+      bottom:
+        0,
+
+      borderRightWidth:
+        2,
+
+      borderBottomWidth:
+        2,
     },
 
     scannerCentre: {
-      position: 'absolute',
+      position:
+        'absolute',
 
-      top: 7,
-      left: 7,
+      top:
+        7,
 
-      width: 6,
-      height: 6,
+      left:
+        7,
+
+      width:
+        6,
+
+      height:
+        6,
 
       backgroundColor:
         COLOURS.lightCream,
     },
 
     receiveHeader: {
-      minHeight: 35,
+      minHeight:
+        38,
 
-      paddingHorizontal: 5,
-      marginBottom: 2,
+      flexDirection:
+        'row',
+
+      alignItems:
+        'flex-start',
+
+      paddingHorizontal:
+        5,
+
+      marginBottom:
+        1,
+    },
+
+    receiveHeaderCopy: {
+      flex:
+        1,
+
+      minWidth:
+        0,
+
+      paddingRight:
+        8,
     },
 
     receiveTitle: {
       color:
         COLOURS.lightCream,
 
-      fontSize: 16,
-      lineHeight: 19,
-      fontWeight: '800',
-      letterSpacing: 0.6,
+      fontSize:
+        15,
+
+      lineHeight:
+        18,
+
+      fontWeight:
+        '800',
+
+      letterSpacing:
+        0.45,
     },
 
     receiveWalletName: {
       color:
         COLOURS.copperLight,
 
-      fontSize: 10,
-      lineHeight: 13,
-      fontWeight: '800',
-      letterSpacing: 0.6,
+      fontSize:
+        10,
+
+      lineHeight:
+        13,
+
+      fontWeight:
+        '800',
+
+      letterSpacing:
+        0.6,
+    },
+
+    shareButton: {
+      width:
+        34,
+
+      height:
+        34,
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+      borderRadius:
+        17,
+
+      borderWidth:
+        2.25,
+
+      borderColor:
+        COLOURS.copper,
+
+      backgroundColor:
+        COLOURS.leather,
+
+      marginTop:
+        -3,
+    },
+
+    shareButtonDisabled: {
+      opacity:
+        0.5,
+    },
+
+    shareButtonPlaceholder: {
+      width:
+        34,
+
+      height:
+        34,
+
+      marginTop:
+        -3,
     },
 
     receiveBody: {
-      flex: 1,
+      flex:
+        1,
 
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection:
+        'row',
 
-      paddingHorizontal: 5,
-      paddingBottom: 2,
+      alignItems:
+        'center',
+
+      paddingHorizontal:
+        5,
+
+      paddingBottom:
+        2,
     },
 
     qrFrame: {
-      width: '46%',
-      aspectRatio: 1,
+      width:
+        '46%',
 
-      position: 'relative',
+      aspectRatio:
+        1,
 
-      alignItems: 'center',
-      justifyContent: 'center',
+      position:
+        'relative',
 
-      overflow: 'hidden',
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+      overflow:
+        'hidden',
 
       backgroundColor:
         COLOURS.lightCream,
 
-      borderWidth: 3,
+      borderWidth:
+        3,
+
       borderColor:
         COLOURS.copperDark,
 
-      borderRadius: 10,
+      borderRadius:
+        10,
 
-      padding: 7,
-      marginRight: 12,
+      padding:
+        7,
+
+      marginRight:
+        12,
     },
 
     qrCoin: {
-      position: 'absolute',
+      position:
+        'absolute',
 
-      width: 41,
-      height: 41,
+      width:
+        41,
 
-      alignItems: 'center',
-      justifyContent: 'center',
+      height:
+        41,
 
-      borderRadius: 21,
+      alignItems:
+        'center',
 
-      borderWidth: 3,
+      justifyContent:
+        'center',
+
+      borderRadius:
+        21,
+
+      borderWidth:
+        3,
+
       borderColor:
         COLOURS.copper,
 
@@ -1345,151 +1887,222 @@ const styles =
       color:
         COLOURS.copperLight,
 
-      fontSize: 21,
-      fontWeight: '800',
+      fontSize:
+        21,
+
+      fontWeight:
+        '800',
     },
 
     receiveDetails: {
-      flex: 1,
-      justifyContent: 'center',
+      flex:
+        1,
+
+      justifyContent:
+        'center',
     },
 
     receiveLabel: {
       color:
         COLOURS.copperLight,
 
-      fontSize: 8,
-      fontWeight: '800',
-      letterSpacing: 1,
+      fontSize:
+        8,
 
-      marginBottom: 3,
+      fontWeight:
+        '800',
+
+      letterSpacing:
+        1,
+
+      marginBottom:
+        3,
     },
 
     requestAmount: {
       color:
         COLOURS.lightCream,
 
-      fontSize: 24,
-      fontWeight: '800',
+      fontSize:
+        24,
 
-      marginBottom: 6,
+      fontWeight:
+        '800',
+
+      marginBottom:
+        6,
     },
 
     addAmountButton: {
-      minHeight: 33,
+      minHeight:
+        33,
 
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
 
       backgroundColor:
         COLOURS.copper,
 
-      borderWidth: 1,
+      borderWidth:
+        1,
+
       borderColor:
         COLOURS.copperLight,
 
-      borderRadius: 7,
+      borderRadius:
+        7,
 
-      paddingHorizontal: 6,
+      paddingHorizontal:
+        6,
     },
 
     addAmountButtonText: {
       color:
         COLOURS.lightCream,
 
-      fontSize: 9,
-      fontWeight: '900',
-      letterSpacing: 0.4,
+      fontSize:
+        9,
+
+      fontWeight:
+        '900',
+
+      letterSpacing:
+        0.4,
     },
 
     addressLabel: {
-      marginTop: 8,
+      marginTop:
+        8,
     },
 
     addressButton: {
-      minHeight: 32,
+      minHeight:
+        32,
 
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection:
+        'row',
+
+      alignItems:
+        'center',
+
       justifyContent:
         'space-between',
 
-      borderWidth: 1,
+      borderWidth:
+        1,
+
       borderColor:
         COLOURS.copperDark,
 
-      borderRadius: 7,
+      borderRadius:
+        7,
 
       backgroundColor:
         COLOURS.leather,
 
-      paddingHorizontal: 8,
+      paddingHorizontal:
+        8,
     },
 
     addressButtonStatic: {
-      opacity: 1,
+      opacity:
+        1,
     },
 
     addressText: {
-      flex: 1,
+      flex:
+        1,
 
       color:
         COLOURS.lightCream,
 
-      fontSize: 10,
-      fontWeight: '600',
+      fontSize:
+        10,
+
+      fontWeight:
+        '600',
     },
 
     copySymbol: {
-      width: 17,
-      height: 18,
+      width:
+        17,
 
-      position: 'relative',
+      height:
+        18,
 
-      marginLeft: 6,
+      position:
+        'relative',
+
+      marginLeft:
+        6,
     },
 
     copySheetBack: {
-      position: 'absolute',
+      position:
+        'absolute',
 
-      top: 0,
-      right: 0,
+      top:
+        0,
 
-      width: 11,
-      height: 13,
+      right:
+        0,
 
-      borderWidth: 1.5,
+      width:
+        11,
+
+      height:
+        13,
+
+      borderWidth:
+        1.5,
+
       borderColor:
         COLOURS.lightCream,
 
-      borderRadius: 2,
+      borderRadius:
+        2,
     },
 
     copySheetFront: {
-      position: 'absolute',
+      position:
+        'absolute',
 
-      left: 0,
-      bottom: 0,
+      left:
+        0,
 
-      width: 11,
-      height: 13,
+      bottom:
+        0,
 
-      borderWidth: 1.5,
+      width:
+        11,
+
+      height:
+        13,
+
+      borderWidth:
+        1.5,
+
       borderColor:
         COLOURS.lightCream,
 
-      borderRadius: 2,
+      borderRadius:
+        2,
 
       backgroundColor:
         COLOURS.leather,
     },
 
     controlPressed: {
-      opacity: 0.58,
+      opacity:
+        0.58,
 
       transform: [
         {
-          scale: 0.98,
+          scale:
+            0.98,
         },
       ],
     },

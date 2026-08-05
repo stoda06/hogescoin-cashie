@@ -4,28 +4,14 @@ const JUPITER_BASE_URL =
 export const SOL_MINT_ADDRESS =
   'So11111111111111111111111111111111111111112';
 
-export const HOGES_MINT_ADDRESS =
-  '2GU6q72m9MnYRSsUszUwipLUBMpXm72gijL2VhQAHnyz';
-
 const DEFAULT_SOL_DECIMALS =
   9;
 
 const DEFAULT_HOGES_DECIMALS =
   6;
 
-const KNOWN_MINT_DECIMALS = {
-  [SOL_MINT_ADDRESS]:
-    DEFAULT_SOL_DECIMALS,
-
-  [HOGES_MINT_ADDRESS]:
-    DEFAULT_HOGES_DECIMALS,
-};
-
 const DEFAULT_SLIPPAGE_BPS =
-  50;
-
-const DEFAULT_FETCH_TIMEOUT_MS =
-  15 * 1000;
+  null;
 
 const DEFAULT_QUOTE_CACHE_MS =
   15 * 1000;
@@ -171,78 +157,6 @@ function createHeaders({
   }
 
   return headers;
-}
-
-async function fetchWithTimeout(
-  url,
-  options = {},
-  timeoutMs =
-    DEFAULT_FETCH_TIMEOUT_MS
-) {
-  const controller =
-    new AbortController();
-
-  const timer =
-    setTimeout(
-      () => {
-        controller.abort();
-      },
-      timeoutMs
-    );
-
-  try {
-    return await fetch(
-      url,
-      {
-        ...options,
-
-        signal:
-          controller.signal,
-      }
-    );
-  } finally {
-    clearTimeout(
-      timer
-    );
-  }
-}
-
-function resolveMintDecimals({
-  mint,
-  decimals = null,
-  label = 'token',
-  fallback = null,
-} = {}) {
-  const knownDecimals =
-    KNOWN_MINT_DECIMALS[
-      mint
-    ];
-
-  if (
-    knownDecimals !==
-    undefined
-  ) {
-    return knownDecimals;
-  }
-
-  if (
-    decimals !== null &&
-    decimals !== undefined
-  ) {
-    return normaliseDecimals(
-      decimals
-    );
-  }
-
-  if (
-    fallback !== null
-  ) {
-    return fallback;
-  }
-
-  throw new Error(
-    `Token decimals for the ${label} mint ${mint} are unknown. Pass ${label}Decimals explicitly.`
-  );
 }
 
 function createJupiterError({
@@ -651,165 +565,59 @@ export function clearJupiterQuoteCache() {
   quoteCache.clear();
 }
 
-/*
- * Converts a UI amount into a native integer amount
- * string by shifting the decimal point textually, so
- * binary floating point error can never change the
- * quoted amount. Invalid, zero, or negative amounts
- * throw instead of being clamped to a dust amount.
- */
 export function uiAmountToNativeAmount({
   amount = 0,
   decimals = 0,
 } = {}) {
-  const safeDecimals =
-    normaliseDecimals(
-      decimals
-    );
-
-  let amountText;
-
-  if (
-    typeof amount ===
-    'number'
-  ) {
-    amountText =
-      Number.isFinite(
-        amount
-      ) &&
-      amount > 0
-        ? amount.toFixed(
-            safeDecimals
-          )
-        : '';
-  } else {
-    amountText =
-      String(
-        amount ?? ''
-      ).trim();
-  }
-
-  const match =
-    /^(\d+)(?:\.(\d*))?$/.exec(
-      amountText
-    ) ||
-    /^()\.(\d+)$/.exec(
-      amountText
-    );
-
-  if (
-    !match
-  ) {
-    throw new Error(
-      `A positive token amount is required, received "${String(
-        amount
-      )}".`
-    );
-  }
-
-  const wholePart =
-    match[1] ||
-    '0';
-
-  const fractionPart =
-    match[2] ||
-    '';
-
-  const shiftedText =
-    `${wholePart}${fractionPart
-      .padEnd(
-        safeDecimals,
-        '0'
-      )
-      .slice(
-        0,
-        safeDecimals
-      )}`.replace(
-      /^0+(?=\d)/,
-      ''
-    );
-
-  if (
-    !/[1-9]/.test(
-      shiftedText
-    )
-  ) {
-    throw new Error(
-      `The amount ${amountText} is below one native token unit and cannot be quoted.`
-    );
-  }
-
-  return shiftedText;
-}
-
-/*
- * Converts a native integer amount string into a UI
- * amount by inserting the decimal point textually, so
- * u64 amounts above 2^53 keep as much precision as a
- * JavaScript number can represent.
- */
-export function nativeAmountToUiAmount({
-  amount = '0',
-  decimals = 0,
-} = {}) {
-  const safeDecimals =
-    normaliseDecimals(
-      decimals
-    );
-
-  const amountText =
-    String(
-      amount ?? '0'
-    ).trim();
-
-  if (
-    !/^\d+$/.test(
-      amountText
-    )
-  ) {
-    return Math.max(
+  const safeAmount =
+    Math.max(
       0,
       toSafeNumber(
         amount,
         0
-      ) /
-        10 **
-          safeDecimals
-    );
-  }
-
-  const digits =
-    amountText.replace(
-      /^0+(?=\d)/,
-      ''
+      )
     );
 
-  const padded =
-    digits.padStart(
-      safeDecimals + 1,
-      '0'
+  const safeDecimals =
+    normaliseDecimals(
+      decimals
     );
 
-  const wholePart =
-    padded.slice(
+  const multiplier =
+    10 **
+    safeDecimals;
+
+  return Math.max(
+    MINIMUM_QUOTE_AMOUNT,
+    Math.floor(
+      safeAmount *
+      multiplier
+    )
+  ).toString();
+}
+
+export function nativeAmountToUiAmount({
+  amount = '0',
+  decimals = 0,
+} = {}) {
+  const safeAmount =
+    Math.max(
       0,
-      padded.length -
-        safeDecimals
+      toSafeNumber(
+        amount,
+        0
+      )
     );
 
-  const fractionPart =
-    safeDecimals > 0
-      ? padded.slice(
-          padded.length -
-            safeDecimals
-        )
-      : '';
+  const safeDecimals =
+    normaliseDecimals(
+      decimals
+    );
 
-  return toSafeNumber(
-    fractionPart
-      ? `${wholePart}.${fractionPart}`
-      : wholePart,
-    0
+  return (
+    safeAmount /
+    10 **
+      safeDecimals
   );
 }
 
@@ -817,8 +625,10 @@ export async function getSwapOrder({
   inputMint,
   outputMint,
   amount,
-  inputDecimals = null,
-  outputDecimals = null,
+  inputDecimals =
+    DEFAULT_HOGES_DECIMALS,
+  outputDecimals =
+    DEFAULT_SOL_DECIMALS,
   amountIsNative =
     false,
   taker = '',
@@ -844,66 +654,31 @@ export async function getSwapOrder({
     );
 
   const safeInputDecimals =
-    resolveMintDecimals({
-      mint:
-        safeInputMint,
-
-      decimals:
-        inputDecimals,
-
-      label:
-        'input',
-    });
+    normaliseDecimals(
+      inputDecimals,
+      DEFAULT_HOGES_DECIMALS
+    );
 
   const safeOutputDecimals =
-    resolveMintDecimals({
-      mint:
-        safeOutputMint,
+    normaliseDecimals(
+      outputDecimals,
+      DEFAULT_SOL_DECIMALS
+    );
 
-      decimals:
-        outputDecimals,
-
-      label:
-        'output',
-
-      fallback:
-        DEFAULT_SOL_DECIMALS,
-    });
-
-  let nativeAmount;
-
-  if (
+  const nativeAmount =
     amountIsNative
-  ) {
-    const integerAmount =
-      toSafeInteger(
-        amount,
-        0
-      );
-
-    if (
-      integerAmount <
-      MINIMUM_QUOTE_AMOUNT
-    ) {
-      throw new Error(
-        `A positive native token amount is required, received "${String(
-          amount
-        )}".`
-      );
-    }
-
-    nativeAmount =
-      String(
-        integerAmount
-      );
-  } else {
-    nativeAmount =
-      uiAmountToNativeAmount({
-        amount,
-        decimals:
-          safeInputDecimals,
-      });
-  }
+      ? Math.max(
+          MINIMUM_QUOTE_AMOUNT,
+          toSafeInteger(
+            amount,
+            MINIMUM_QUOTE_AMOUNT
+          )
+        ).toString()
+      : uiAmountToNativeAmount({
+          amount,
+          decimals:
+            safeInputDecimals,
+        });
 
   const safeTaker =
     normaliseAddress(
@@ -934,15 +709,6 @@ export async function getSwapOrder({
           )
         );
 
-  /*
-   * Orders requested with a taker return a blockhash
-   * bound transaction and request ID, so they must
-   * always be fetched live. Only takerless price
-   * quotes may be read from or written to the cache.
-   */
-  const cacheable =
-    !safeTaker;
-
   const cacheKey =
     createCacheKey({
       inputMint:
@@ -965,7 +731,6 @@ export async function getSwapOrder({
     });
 
   if (
-    cacheable &&
     !forceRefresh
   ) {
     const cached =
@@ -1032,7 +797,7 @@ export async function getSwapOrder({
 
   try {
     response =
-      await fetchWithTimeout(
+      await fetch(
         endpoint,
         {
           method:
@@ -1086,14 +851,10 @@ export async function getSwapOrder({
       'live',
   };
 
-  if (
-    cacheable
-  ) {
-    setCachedQuote(
-      cacheKey,
-      finalResult
-    );
-  }
+  setCachedQuote(
+    cacheKey,
+    finalResult
+  );
 
   return finalResult;
 }
@@ -1102,8 +863,10 @@ export async function getQuote({
   inputMint,
   outputMint,
   amount,
-  inputDecimals = null,
-  outputDecimals = null,
+  inputDecimals =
+    DEFAULT_HOGES_DECIMALS,
+  outputDecimals =
+    DEFAULT_SOL_DECIMALS,
   amountIsNative =
     false,
   forceRefresh = false,
@@ -1305,7 +1068,7 @@ export async function executeSignedSwap({
 
   try {
     response =
-      await fetchWithTimeout(
+      await fetch(
         endpoint,
         {
           method:
@@ -1715,44 +1478,24 @@ export async function estimateMaximumPayment({
     }
   }
 
-  /*
-   * The displayed AUD amount is floored, so scale the
-   * quoted token amounts to match it and keep the
-   * returned pair consistent.
-   */
-  const flooredAmountAud =
-    Math.max(
-      0,
-      Math.floor(
-        bestAmountAud
-      )
-    );
-
-  const flooredScale =
-    bestAmountAud > 0
-      ? flooredAmountAud /
-        bestAmountAud
-      : 0;
-
   return {
     amountAud:
-      flooredAmountAud,
+      Math.max(
+        0,
+        Math.floor(
+          bestAmountAud
+        )
+      ),
 
     hogesAmount:
-      (
-        bestQuote
-          ?.inputUiAmount ||
-        0
-      ) *
-      flooredScale,
+      bestQuote
+        ?.inputUiAmount ||
+      0,
 
     outputSol:
-      (
-        bestQuote
-          ?.outputUiAmount ||
-        0
-      ) *
-      flooredScale,
+      bestQuote
+        ?.outputUiAmount ||
+      0,
 
     available:
       bestAmountAud > 0,
@@ -1774,7 +1517,7 @@ export async function estimateMaximumPayment({
 export async function getJupiterHealth() {
   try {
     const response =
-      await fetchWithTimeout(
+      await fetch(
         `${JUPITER_BASE_URL}/order?${buildQueryString({
           inputMint:
             SOL_MINT_ADDRESS,

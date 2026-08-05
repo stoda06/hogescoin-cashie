@@ -47,8 +47,10 @@ export default function HomeScreen({
   hogesAudPrice,
   requestedAmount = 0,
 
-  currencyCode = 'AUD',
+    currencyCode = 'AUD',
   currencySymbol = '$',
+  currencyFlag = '🇦🇺',
+  selectedCurrency,
 
   onPayAmount,
   onReceiveAmount,
@@ -368,11 +370,15 @@ export default function HomeScreen({
                 displayedCashieBalance
               }
               currencyCode={
-                currencyCode
+              currencyCode
               }
               currencySymbol={
-                currencySymbol
+              currencySymbol
               }
+              currencyFlag={
+              currencyFlag
+              }
+
               onCurrencyPress={
                 currencyCallback
               }
@@ -387,7 +393,7 @@ export default function HomeScreen({
                   'pay'
                 )
               }
-              onMerchant={
+              onTapOrScan={
                 merchantCallback
               }
               onAddAmount={() =>
@@ -404,7 +410,7 @@ export default function HomeScreen({
                 styles.amountArea
               }
             >
-              <CashComposer
+                <CashComposer
                 mode={
                   amountMode
                 }
@@ -413,6 +419,9 @@ export default function HomeScreen({
                 }
                 maximumAmount={
                   maximumForMode()
+                }
+                currency={
+                  selectedCurrency
                 }
                 currencySymbol={
                   currencySymbol

@@ -14,6 +14,37 @@ import {
   MaterialCommunityIcons,
 } from '@expo/vector-icons';
 
+const DEFAULT_ENTRIES = [
+  {
+    id: '1',
+    type: 'payment',
+    title: 'Payment sent',
+    subtitle: 'Today',
+    amount: '-A$20.00',
+  },
+  {
+    id: '2',
+    type: 'received',
+    title: 'Payment received',
+    subtitle: 'Yesterday',
+    amount: '+A$50.00',
+  },
+  {
+    id: '3',
+    type: 'battery',
+    title: 'Battery updated',
+    subtitle: '28 July 2026',
+    amount: 'A$2.00',
+  },
+  {
+    id: '4',
+    type: 'wallet',
+    title: 'Cashie wallet activated',
+    subtitle: 'July 2026',
+    amount: '',
+  },
+];
+
 function iconForType(
   type
 ) {
@@ -52,9 +83,10 @@ export default function CashieLogBook({
       () =>
         Array.isArray(
           entries
-        )
+        ) &&
+        entries.length > 0
           ? entries
-          : [],
+          : DEFAULT_ENTRIES,
       [
         entries,
       ]
@@ -125,18 +157,6 @@ export default function CashieLogBook({
           </Text>
         </TouchableOpacity>
       </View>
-
-      {safeEntries.length ===
-        0 && (
-        <Text
-          style={
-            styles.emptyText
-          }
-        >
-          No wallet activity yet. Payments you make and
-          receive will appear here.
-        </Text>
-      )}
 
       <View
         style={
@@ -344,13 +364,6 @@ const styles =
       marginTop: 2,
       color: '#8A715E',
       fontSize: 10,
-    },
-
-    emptyText: {
-      marginTop: 12,
-      color: '#8A715E',
-      fontSize: 12,
-      lineHeight: 18,
     },
 
     entryAmount: {

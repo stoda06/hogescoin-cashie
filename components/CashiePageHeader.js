@@ -69,6 +69,15 @@ function HeaderIcon({
         />
       );
 
+    case 'back':
+      return (
+        <Ionicons
+          name="arrow-back"
+          size={24}
+          color={COLORS.copperLight}
+        />
+      );
+
     case 'refresh':
       return (
         <Ionicons
@@ -92,6 +101,7 @@ export default function CashiePageHeader({
   subtitle,
   icon,
   onIconPress,
+  iconAccessibilityLabel,
   reserveTitleSpace = false,
 }) {
   const showTitleArea =
@@ -142,7 +152,10 @@ export default function CashiePageHeader({
           }
           accessibilityLabel={
             onIconPress
-              ? 'Turn Cashie card'
+              ? (
+                  iconAccessibilityLabel ||
+                  'Cashie action'
+                )
               : undefined
           }
           disabled={

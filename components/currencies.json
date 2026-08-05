@@ -1,0 +1,629 @@
+{
+  "AUD": {
+    "code": "AUD",
+    "flag": "🇦🇺",
+    "name": "Australian Dollar",
+    "symbol": "$",
+    "symbolPosition": "before",
+    "decimalPlaces": 2,
+    "keypadKey": ".",
+    "coinStyle": "silver and gold",
+    "noteStyle": "brightly coloured polymer notes increasing in length",
+    "coins": [
+      { "value": 0.05, "label": "5c", "colour": "silver", "relativeSize": 0.72 },
+      { "value": 0.1, "label": "10c", "colour": "silver", "relativeSize": 0.78 },
+      { "value": 0.2, "label": "20c", "colour": "silver", "relativeSize": 0.88 },
+      { "value": 0.5, "label": "50c", "colour": "silver", "relativeSize": 1, "shape": "dodecagon" },
+      { "value": 1, "label": "$1", "colour": "gold", "relativeSize": 0.82 },
+      { "value": 2, "label": "$2", "colour": "gold", "relativeSize": 0.68 }
+    ],
+    "notes": [
+      { "value": 5, "label": "$5", "colour": "purple", "relativeSize": 0.84 },
+      { "value": 10, "label": "$10", "colour": "blue", "relativeSize": 0.88 },
+      { "value": 20, "label": "$20", "colour": "red-orange", "relativeSize": 0.92 },
+      { "value": 50, "label": "$50", "colour": "yellow", "relativeSize": 0.96 },
+      { "value": 100, "label": "$100", "colour": "green", "relativeSize": 1 }
+    ]
+  },
+
+  "USD": {
+    "code": "USD",
+    "flag": "🇺🇸",
+    "name": "US Dollar",
+    "symbol": "$",
+    "symbolPosition": "before",
+    "decimalPlaces": 2,
+    "keypadKey": ".",
+    "coinStyle": "copper and silver-coloured coins",
+    "noteStyle": "uniform-sized green and off-white paper notes",
+    "coins": [
+      { "value": 0.01, "label": "1¢", "colour": "copper", "relativeSize": 0.66 },
+      { "value": 0.05, "label": "5¢", "colour": "silver", "relativeSize": 0.76 },
+      { "value": 0.1, "label": "10¢", "colour": "silver", "relativeSize": 0.62 },
+      { "value": 0.25, "label": "25¢", "colour": "silver", "relativeSize": 0.88 },
+      { "value": 0.5, "label": "50¢", "colour": "silver", "relativeSize": 1 },
+      { "value": 1, "label": "$1", "colour": "gold", "relativeSize": 0.82 }
+    ],
+    "notes": [
+      { "value": 1, "label": "$1", "colour": "green", "relativeSize": 1 },
+      { "value": 2, "label": "$2", "colour": "green", "relativeSize": 1 },
+      { "value": 5, "label": "$5", "colour": "grey-purple", "relativeSize": 1 },
+      { "value": 10, "label": "$10", "colour": "orange", "relativeSize": 1 },
+      { "value": 20, "label": "$20", "colour": "green", "relativeSize": 1 },
+      { "value": 50, "label": "$50", "colour": "pink-red", "relativeSize": 1 },
+      { "value": 100, "label": "$100", "colour": "blue-green", "relativeSize": 1 }
+    ]
+  },
+
+  "EUR": {
+    "code": "EUR",
+    "flag": "🇪🇺",
+    "name": "Euro",
+    "symbol": "€",
+    "symbolPosition": "before",
+    "decimalPlaces": 2,
+    "keypadKey": ".",
+    "coinStyle": "copper, gold and bi-metal coins",
+    "noteStyle": "multicoloured notes increasing in size",
+    "coins": [
+      { "value": 0.01, "label": "1c", "colour": "copper", "relativeSize": 0.58 },
+      { "value": 0.02, "label": "2c", "colour": "copper", "relativeSize": 0.66 },
+      { "value": 0.05, "label": "5c", "colour": "copper", "relativeSize": 0.74 },
+      { "value": 0.1, "label": "10c", "colour": "gold", "relativeSize": 0.72 },
+      { "value": 0.2, "label": "20c", "colour": "gold", "relativeSize": 0.8 },
+      { "value": 0.5, "label": "50c", "colour": "gold", "relativeSize": 0.9 },
+      { "value": 1, "label": "€1", "colour": "bi-metal", "relativeSize": 0.88 },
+      { "value": 2, "label": "€2", "colour": "bi-metal", "relativeSize": 1 }
+    ],
+    "notes": [
+      { "value": 5, "label": "€5", "colour": "grey", "relativeSize": 0.78 },
+      { "value": 10, "label": "€10", "colour": "red", "relativeSize": 0.82 },
+      { "value": 20, "label": "€20", "colour": "blue", "relativeSize": 0.86 },
+      { "value": 50, "label": "€50", "colour": "orange", "relativeSize": 0.91 },
+      { "value": 100, "label": "€100", "colour": "green", "relativeSize": 0.96 },
+      { "value": 200, "label": "€200", "colour": "yellow-brown", "relativeSize": 1 }
+    ]
+  },
+
+  "GBP": {
+    "code": "GBP",
+    "flag": "🇬🇧",
+    "name": "Pound Sterling",
+    "symbol": "£",
+    "symbolPosition": "before",
+    "decimalPlaces": 2,
+    "keypadKey": ".",
+    "coinStyle": "copper, silver and bi-metal coins",
+    "noteStyle": "colour-coded polymer notes",
+    "coins": [
+      { "value": 0.01, "label": "1p", "colour": "copper", "relativeSize": 0.64 },
+      { "value": 0.02, "label": "2p", "colour": "copper", "relativeSize": 0.78 },
+      { "value": 0.05, "label": "5p", "colour": "silver", "relativeSize": 0.58 },
+      { "value": 0.1, "label": "10p", "colour": "silver", "relativeSize": 0.68 },
+      { "value": 0.2, "label": "20p", "colour": "silver", "relativeSize": 0.72, "shape": "curved-heptagon" },
+      { "value": 0.5, "label": "50p", "colour": "silver", "relativeSize": 0.86, "shape": "curved-heptagon" },
+      { "value": 1, "label": "£1", "colour": "bi-metal", "relativeSize": 0.84, "shape": "dodecagon" },
+      { "value": 2, "label": "£2", "colour": "bi-metal", "relativeSize": 1 }
+    ],
+    "notes": [
+      { "value": 5, "label": "£5", "colour": "blue-green", "relativeSize": 0.82 },
+      { "value": 10, "label": "£10", "colour": "orange-brown", "relativeSize": 0.88 },
+      { "value": 20, "label": "£20", "colour": "purple", "relativeSize": 0.94 },
+      { "value": 50, "label": "£50", "colour": "red", "relativeSize": 1 }
+    ]
+  },
+
+  "NZD": {
+    "code": "NZD",
+    "flag": "🇳🇿",
+    "name": "New Zealand Dollar",
+    "symbol": "$",
+    "symbolPosition": "before",
+    "decimalPlaces": 2,
+    "keypadKey": ".",
+    "coinStyle": "silver and gold-coloured coins",
+    "noteStyle": "bright polymer notes increasing in size",
+    "coins": [
+      { "value": 0.1, "label": "10c", "colour": "copper", "relativeSize": 0.72 },
+      { "value": 0.2, "label": "20c", "colour": "silver", "relativeSize": 0.8 },
+      { "value": 0.5, "label": "50c", "colour": "silver", "relativeSize": 0.9 },
+      { "value": 1, "label": "$1", "colour": "gold", "relativeSize": 0.86 },
+      { "value": 2, "label": "$2", "colour": "gold", "relativeSize": 1 }
+    ],
+    "notes": [
+      { "value": 5, "label": "$5", "colour": "orange", "relativeSize": 0.84 },
+      { "value": 10, "label": "$10", "colour": "blue", "relativeSize": 0.88 },
+      { "value": 20, "label": "$20", "colour": "green", "relativeSize": 0.92 },
+      { "value": 50, "label": "$50", "colour": "purple", "relativeSize": 0.96 },
+      { "value": 100, "label": "$100", "colour": "red", "relativeSize": 1 }
+    ]
+  },
+
+  "CAD": {
+    "code": "CAD",
+    "flag": "🇨🇦",
+    "name": "Canadian Dollar",
+    "symbol": "$",
+    "symbolPosition": "before",
+    "decimalPlaces": 2,
+    "keypadKey": ".",
+    "coinStyle": "silver, gold and bi-metal coins",
+    "noteStyle": "colour-coded polymer notes",
+    "coins": [
+      { "value": 0.05, "label": "5¢", "colour": "silver", "relativeSize": 0.7 },
+      { "value": 0.1, "label": "10¢", "colour": "silver", "relativeSize": 0.62 },
+      { "value": 0.25, "label": "25¢", "colour": "silver", "relativeSize": 0.78 },
+      { "value": 0.5, "label": "50¢", "colour": "silver", "relativeSize": 0.9 },
+      { "value": 1, "label": "$1", "colour": "gold", "relativeSize": 0.84, "shape": "hendecagon" },
+      { "value": 2, "label": "$2", "colour": "bi-metal", "relativeSize": 1 }
+    ],
+    "notes": [
+      { "value": 5, "label": "$5", "colour": "blue", "relativeSize": 1 },
+      { "value": 10, "label": "$10", "colour": "purple", "relativeSize": 1 },
+      { "value": 20, "label": "$20", "colour": "green", "relativeSize": 1 },
+      { "value": 50, "label": "$50", "colour": "red", "relativeSize": 1 },
+      { "value": 100, "label": "$100", "colour": "brown", "relativeSize": 1 }
+    ]
+  },
+
+  "SGD": {
+    "code": "SGD",
+    "flag": "🇸🇬",
+    "name": "Singapore Dollar",
+    "symbol": "$",
+    "symbolPosition": "before",
+    "decimalPlaces": 2,
+    "keypadKey": ".",
+    "coinStyle": "silver, gold and bi-metal coins",
+    "noteStyle": "colour-coded portrait notes",
+    "coins": [
+      { "value": 0.05, "label": "5c", "colour": "gold", "relativeSize": 0.62 },
+      { "value": 0.1, "label": "10c", "colour": "silver", "relativeSize": 0.7 },
+      { "value": 0.2, "label": "20c", "colour": "silver", "relativeSize": 0.78 },
+      { "value": 0.5, "label": "50c", "colour": "silver", "relativeSize": 0.86 },
+      { "value": 1, "label": "$1", "colour": "bi-metal", "relativeSize": 1 }
+    ],
+    "notes": [
+      { "value": 2, "label": "$2", "colour": "purple", "relativeSize": 0.82 },
+      { "value": 5, "label": "$5", "colour": "green", "relativeSize": 0.86 },
+      { "value": 10, "label": "$10", "colour": "red", "relativeSize": 0.9 },
+      { "value": 50, "label": "$50", "colour": "blue", "relativeSize": 0.95 },
+      { "value": 100, "label": "$100", "colour": "orange", "relativeSize": 1 }
+    ]
+  },
+
+  "HKD": {
+    "code": "HKD",
+    "flag": "🇭🇰",
+    "name": "Hong Kong Dollar",
+    "symbol": "$",
+    "symbolPosition": "before",
+    "decimalPlaces": 2,
+    "keypadKey": ".",
+    "coinStyle": "bronze, silver and bi-metal coins",
+    "noteStyle": "multiple issuing-bank designs sharing denomination colours",
+    "coins": [
+      { "value": 0.1, "label": "10c", "colour": "bronze", "relativeSize": 0.58 },
+      { "value": 0.2, "label": "20c", "colour": "bronze", "relativeSize": 0.66, "shape": "scalloped" },
+      { "value": 0.5, "label": "50c", "colour": "bronze", "relativeSize": 0.74 },
+      { "value": 1, "label": "$1", "colour": "silver", "relativeSize": 0.78 },
+      { "value": 2, "label": "$2", "colour": "silver", "relativeSize": 0.84, "shape": "scalloped" },
+      { "value": 5, "label": "$5", "colour": "silver", "relativeSize": 0.9 },
+      { "value": 10, "label": "$10", "colour": "bi-metal", "relativeSize": 1 }
+    ],
+    "notes": [
+      { "value": 10, "label": "$10", "colour": "purple", "relativeSize": 0.8 },
+      { "value": 20, "label": "$20", "colour": "blue", "relativeSize": 0.84 },
+      { "value": 50, "label": "$50", "colour": "green", "relativeSize": 0.88 },
+      { "value": 100, "label": "$100", "colour": "red", "relativeSize": 0.92 },
+      { "value": 500, "label": "$500", "colour": "brown", "relativeSize": 0.96 },
+      { "value": 1000, "label": "$1,000", "colour": "gold-orange", "relativeSize": 1 }
+    ]
+  },
+
+  "JPY": {
+    "code": "JPY",
+    "flag": "🇯🇵",
+    "name": "Japanese Yen",
+    "symbol": "¥",
+    "symbolPosition": "before",
+    "decimalPlaces": 0,
+    "keypadKey": "000",
+    "coinStyle": "aluminium, bronze, brass and silver-coloured coins",
+    "noteStyle": "restrained portrait notes with traditional motifs",
+    "coins": [
+      { "value": 1, "label": "¥1", "colour": "aluminium", "relativeSize": 0.56 },
+      { "value": 5, "label": "¥5", "colour": "gold", "relativeSize": 0.66 },
+      { "value": 10, "label": "¥10", "colour": "bronze", "relativeSize": 0.72 },
+      { "value": 50, "label": "¥50", "colour": "silver", "relativeSize": 0.68 },
+      { "value": 100, "label": "¥100", "colour": "silver", "relativeSize": 0.78 },
+      { "value": 500, "label": "¥500", "colour": "bi-metal", "relativeSize": 1 }
+    ],
+    "notes": [
+      { "value": 1000, "label": "¥1,000", "colour": "blue", "relativeSize": 0.88 },
+      { "value": 5000, "label": "¥5,000", "colour": "purple", "relativeSize": 0.94 },
+      { "value": 10000, "label": "¥10,000", "colour": "brown", "relativeSize": 1 }
+    ]
+  },
+
+  "KRW": {
+    "code": "KRW",
+    "flag": "🇰🇷",
+    "name": "South Korean Won",
+    "symbol": "₩",
+    "symbolPosition": "before",
+    "decimalPlaces": 0,
+    "keypadKey": "000",
+    "coinStyle": "brass and silver-coloured coins",
+    "noteStyle": "portrait notes with Korean cultural imagery",
+    "coins": [
+      { "value": 10, "label": "₩10", "colour": "copper", "relativeSize": 0.58 },
+      { "value": 50, "label": "₩50", "colour": "gold", "relativeSize": 0.66 },
+      { "value": 100, "label": "₩100", "colour": "silver", "relativeSize": 0.76 },
+      { "value": 500, "label": "₩500", "colour": "silver", "relativeSize": 1 }
+    ],
+    "notes": [
+      { "value": 1000, "label": "₩1,000", "colour": "blue", "relativeSize": 0.84 },
+      { "value": 5000, "label": "₩5,000", "colour": "orange", "relativeSize": 0.89 },
+      { "value": 10000, "label": "₩10,000", "colour": "green", "relativeSize": 0.94 },
+      { "value": 50000, "label": "₩50,000", "colour": "yellow", "relativeSize": 1 }
+    ]
+  },
+
+  "INR": {
+    "code": "INR",
+    "flag": "🇮🇳",
+    "name": "Indian Rupee",
+    "symbol": "₹",
+    "symbolPosition": "before",
+    "decimalPlaces": 2,
+    "keypadKey": ".",
+    "coinStyle": "silver and bi-metal coins",
+    "noteStyle": "brightly coloured notes with differing dimensions",
+    "coins": [
+      { "value": 0.5, "label": "50p", "colour": "silver", "relativeSize": 0.54 },
+      { "value": 1, "label": "₹1", "colour": "silver", "relativeSize": 0.62 },
+      { "value": 2, "label": "₹2", "colour": "silver", "relativeSize": 0.7 },
+      { "value": 5, "label": "₹5", "colour": "silver", "relativeSize": 0.78 },
+      { "value": 10, "label": "₹10", "colour": "bi-metal", "relativeSize": 0.9 },
+      { "value": 20, "label": "₹20", "colour": "bi-metal", "relativeSize": 1, "shape": "dodecagon" }
+    ],
+    "notes": [
+      { "value": 10, "label": "₹10", "colour": "brown", "relativeSize": 0.78 },
+      { "value": 20, "label": "₹20", "colour": "yellow-green", "relativeSize": 0.82 },
+      { "value": 50, "label": "₹50", "colour": "blue", "relativeSize": 0.86 },
+      { "value": 100, "label": "₹100", "colour": "purple", "relativeSize": 0.9 },
+      { "value": 200, "label": "₹200", "colour": "orange", "relativeSize": 0.95 },
+      { "value": 500, "label": "₹500", "colour": "grey-green", "relativeSize": 1 }
+    ]
+  },
+
+  "CHF": {
+    "code": "CHF",
+    "flag": "🇨🇭",
+    "name": "Swiss Franc",
+    "symbol": "CHF ",
+    "symbolPosition": "before",
+    "decimalPlaces": 2,
+    "keypadKey": ".",
+    "coinStyle": "silver and gold-coloured coins",
+    "noteStyle": "vertical multicoloured notes increasing in size",
+    "coins": [
+      { "value": 0.05, "label": "5 Rp", "colour": "gold", "relativeSize": 0.66 },
+      { "value": 0.1, "label": "10 Rp", "colour": "silver", "relativeSize": 0.7 },
+      { "value": 0.2, "label": "20 Rp", "colour": "silver", "relativeSize": 0.76 },
+      { "value": 0.5, "label": "½ Fr", "colour": "silver", "relativeSize": 0.62 },
+      { "value": 1, "label": "1 Fr", "colour": "silver", "relativeSize": 0.78 },
+      { "value": 2, "label": "2 Fr", "colour": "silver", "relativeSize": 0.88 },
+      { "value": 5, "label": "5 Fr", "colour": "silver", "relativeSize": 1 }
+    ],
+    "notes": [
+      { "value": 10, "label": "CHF 10", "colour": "yellow", "relativeSize": 0.78 },
+      { "value": 20, "label": "CHF 20", "colour": "red", "relativeSize": 0.82 },
+      { "value": 50, "label": "CHF 50", "colour": "green", "relativeSize": 0.86 },
+      { "value": 100, "label": "CHF 100", "colour": "blue", "relativeSize": 0.9 },
+      { "value": 200, "label": "CHF 200", "colour": "brown", "relativeSize": 0.95 },
+      { "value": 1000, "label": "CHF 1,000", "colour": "purple", "relativeSize": 1 }
+    ]
+  },
+
+  "NOK": {
+    "code": "NOK",
+    "flag": "🇳🇴",
+    "name": "Norwegian Krone",
+    "symbol": "kr",
+    "symbolPosition": "after",
+    "decimalPlaces": 2,
+    "keypadKey": ".",
+    "coinStyle": "copper, silver and gold-coloured coins",
+    "noteStyle": "maritime-themed notes with pixelated reverse designs",
+    "coins": [
+      { "value": 1, "label": "1 kr", "colour": "silver", "relativeSize": 0.68 },
+      { "value": 5, "label": "5 kr", "colour": "silver", "relativeSize": 0.76 },
+      { "value": 10, "label": "10 kr", "colour": "gold", "relativeSize": 0.86 },
+      { "value": 20, "label": "20 kr", "colour": "gold", "relativeSize": 1 }
+    ],
+    "notes": [
+      { "value": 50, "label": "50 kr", "colour": "green", "relativeSize": 0.82 },
+      { "value": 100, "label": "100 kr", "colour": "red", "relativeSize": 0.87 },
+      { "value": 200, "label": "200 kr", "colour": "blue", "relativeSize": 0.91 },
+      { "value": 500, "label": "500 kr", "colour": "orange-brown", "relativeSize": 0.96 },
+      { "value": 1000, "label": "1,000 kr", "colour": "purple", "relativeSize": 1 }
+    ]
+  },
+
+  "SEK": {
+    "code": "SEK",
+    "flag": "🇸🇪",
+    "name": "Swedish Krona",
+    "symbol": "kr",
+    "symbolPosition": "after",
+    "decimalPlaces": 2,
+    "keypadKey": ".",
+    "coinStyle": "copper and gold-coloured coins",
+    "noteStyle": "cultural portrait notes increasing in size",
+    "coins": [
+      { "value": 1, "label": "1 kr", "colour": "copper", "relativeSize": 0.68 },
+      { "value": 2, "label": "2 kr", "colour": "copper", "relativeSize": 0.76 },
+      { "value": 5, "label": "5 kr", "colour": "gold", "relativeSize": 0.86 },
+      { "value": 10, "label": "10 kr", "colour": "gold", "relativeSize": 1 }
+    ],
+    "notes": [
+      { "value": 20, "label": "20 kr", "colour": "purple", "relativeSize": 0.78 },
+      { "value": 50, "label": "50 kr", "colour": "orange", "relativeSize": 0.82 },
+      { "value": 100, "label": "100 kr", "colour": "blue", "relativeSize": 0.87 },
+      { "value": 200, "label": "200 kr", "colour": "green", "relativeSize": 0.91 },
+      { "value": 500, "label": "500 kr", "colour": "red", "relativeSize": 0.96 },
+      { "value": 1000, "label": "1,000 kr", "colour": "grey-brown", "relativeSize": 1 }
+    ]
+  },
+
+  "DKK": {
+    "code": "DKK",
+    "flag": "🇩🇰",
+    "name": "Danish Krone",
+    "symbol": "kr",
+    "symbolPosition": "after",
+    "decimalPlaces": 2,
+    "keypadKey": ".",
+    "coinStyle": "bronze, silver and gold-coloured coins",
+    "noteStyle": "bridge and archaeological motif notes",
+    "coins": [
+      { "value": 0.5, "label": "50 øre", "colour": "bronze", "relativeSize": 0.64 },
+      { "value": 1, "label": "1 kr", "colour": "silver", "relativeSize": 0.7 },
+      { "value": 2, "label": "2 kr", "colour": "silver", "relativeSize": 0.78 },
+      { "value": 5, "label": "5 kr", "colour": "silver", "relativeSize": 0.86 },
+      { "value": 10, "label": "10 kr", "colour": "gold", "relativeSize": 0.92 },
+      { "value": 20, "label": "20 kr", "colour": "gold", "relativeSize": 1 }
+    ],
+    "notes": [
+      { "value": 50, "label": "50 kr", "colour": "purple", "relativeSize": 0.82 },
+      { "value": 100, "label": "100 kr", "colour": "orange", "relativeSize": 0.87 },
+      { "value": 200, "label": "200 kr", "colour": "green", "relativeSize": 0.91 },
+      { "value": 500, "label": "500 kr", "colour": "blue", "relativeSize": 0.96 },
+      { "value": 1000, "label": "1,000 kr", "colour": "brown-red", "relativeSize": 1 }
+    ]
+  },
+
+  "AED": {
+    "code": "AED",
+    "flag": "🇦🇪",
+    "name": "UAE Dirham",
+    "symbol": "د.إ",
+    "symbolPosition": "after",
+    "decimalPlaces": 2,
+    "keypadKey": ".",
+    "coinStyle": "silver and gold-coloured coins",
+    "noteStyle": "Arabic and English notes featuring national landmarks",
+    "coins": [
+      { "value": 0.25, "label": "25 fils", "colour": "silver", "relativeSize": 0.68 },
+      { "value": 0.5, "label": "50 fils", "colour": "silver", "relativeSize": 0.78, "shape": "curved-heptagon" },
+      { "value": 1, "label": "1 د.إ", "colour": "silver", "relativeSize": 1 }
+    ],
+    "notes": [
+      { "value": 5, "label": "5 د.إ", "colour": "brown", "relativeSize": 0.78 },
+      { "value": 10, "label": "10 د.إ", "colour": "green", "relativeSize": 0.82 },
+      { "value": 20, "label": "20 د.إ", "colour": "blue", "relativeSize": 0.86 },
+      { "value": 50, "label": "50 د.إ", "colour": "purple", "relativeSize": 0.89 },
+      { "value": 100, "label": "100 د.إ", "colour": "red", "relativeSize": 0.92 },
+      { "value": 200, "label": "200 د.إ", "colour": "yellow-brown", "relativeSize": 0.95 },
+      { "value": 500, "label": "500 د.إ", "colour": "blue-green", "relativeSize": 0.98 },
+      { "value": 1000, "label": "1,000 د.إ", "colour": "brown-purple", "relativeSize": 1 }
+    ]
+  },
+
+  "SAR": {
+    "code": "SAR",
+    "flag": "🇸🇦",
+    "name": "Saudi Riyal",
+    "symbol": "ر.س",
+    "symbolPosition": "after",
+    "decimalPlaces": 2,
+    "keypadKey": ".",
+    "coinStyle": "gold, silver and bi-metal coins",
+    "noteStyle": "Arabic portrait and landmark notes",
+    "coins": [
+      { "value": 0.05, "label": "5 halala", "colour": "gold", "relativeSize": 0.56 },
+      { "value": 0.1, "label": "10 halala", "colour": "gold", "relativeSize": 0.62 },
+      { "value": 0.25, "label": "25 halala", "colour": "gold", "relativeSize": 0.7 },
+      { "value": 0.5, "label": "50 halala", "colour": "gold", "relativeSize": 0.78 },
+      { "value": 1, "label": "1 ر.س", "colour": "bi-metal", "relativeSize": 0.9 },
+      { "value": 2, "label": "2 ر.س", "colour": "bi-metal", "relativeSize": 1 }
+    ],
+    "notes": [
+      { "value": 1, "label": "1 ر.س", "colour": "green", "relativeSize": 0.76 },
+      { "value": 5, "label": "5 ر.س", "colour": "purple", "relativeSize": 0.81 },
+      { "value": 10, "label": "10 ر.س", "colour": "brown", "relativeSize": 0.86 },
+      { "value": 50, "label": "50 ر.س", "colour": "green", "relativeSize": 0.91 },
+      { "value": 100, "label": "100 ر.س", "colour": "red", "relativeSize": 0.96 },
+      { "value": 500, "label": "500 ر.س", "colour": "blue", "relativeSize": 1 }
+    ]
+  },
+
+  "THB": {
+    "code": "THB",
+    "flag": "🇹🇭",
+    "name": "Thai Baht",
+    "symbol": "฿",
+    "symbolPosition": "before",
+    "decimalPlaces": 2,
+    "keypadKey": ".",
+    "coinStyle": "bronze, silver and bi-metal coins",
+    "noteStyle": "portrait notes increasing in size",
+    "coins": [
+      { "value": 0.25, "label": "25 satang", "colour": "bronze", "relativeSize": 0.56 },
+      { "value": 0.5, "label": "50 satang", "colour": "bronze", "relativeSize": 0.62 },
+      { "value": 1, "label": "฿1", "colour": "silver", "relativeSize": 0.68 },
+      { "value": 2, "label": "฿2", "colour": "gold", "relativeSize": 0.74 },
+      { "value": 5, "label": "฿5", "colour": "silver", "relativeSize": 0.82 },
+      { "value": 10, "label": "฿10", "colour": "bi-metal", "relativeSize": 1 }
+    ],
+    "notes": [
+      { "value": 20, "label": "฿20", "colour": "green", "relativeSize": 0.82 },
+      { "value": 50, "label": "฿50", "colour": "blue", "relativeSize": 0.86 },
+      { "value": 100, "label": "฿100", "colour": "red", "relativeSize": 0.9 },
+      { "value": 500, "label": "฿500", "colour": "purple", "relativeSize": 0.95 },
+      { "value": 1000, "label": "฿1,000", "colour": "brown", "relativeSize": 1 }
+    ]
+  },
+
+  "MYR": {
+    "code": "MYR",
+    "flag": "🇲🇾",
+    "name": "Malaysian Ringgit",
+    "symbol": "RM",
+    "symbolPosition": "before",
+    "decimalPlaces": 2,
+    "keypadKey": ".",
+    "coinStyle": "silver and gold-coloured coins",
+    "noteStyle": "colour-coded polymer and paper notes",
+    "coins": [
+      { "value": 0.05, "label": "5 sen", "colour": "silver", "relativeSize": 0.64 },
+      { "value": 0.1, "label": "10 sen", "colour": "silver", "relativeSize": 0.72 },
+      { "value": 0.2, "label": "20 sen", "colour": "gold", "relativeSize": 0.82 },
+      { "value": 0.5, "label": "50 sen", "colour": "gold", "relativeSize": 1 }
+    ],
+    "notes": [
+      { "value": 1, "label": "RM1", "colour": "blue", "relativeSize": 0.78 },
+      { "value": 5, "label": "RM5", "colour": "green", "relativeSize": 0.82 },
+      { "value": 10, "label": "RM10", "colour": "red", "relativeSize": 0.86 },
+      { "value": 20, "label": "RM20", "colour": "orange", "relativeSize": 0.9 },
+      { "value": 50, "label": "RM50", "colour": "blue-green", "relativeSize": 0.95 },
+      { "value": 100, "label": "RM100", "colour": "purple", "relativeSize": 1 }
+    ]
+  },
+
+  "PHP": {
+    "code": "PHP",
+    "flag": "🇵🇭",
+    "name": "Philippine Peso",
+    "symbol": "₱",
+    "symbolPosition": "before",
+    "decimalPlaces": 2,
+    "keypadKey": ".",
+    "coinStyle": "bronze, silver and bi-metal coins",
+    "noteStyle": "colour-coded notes with national figures and wildlife",
+    "coins": [
+      { "value": 0.01, "label": "1 sentimo", "colour": "bronze", "relativeSize": 0.5 },
+      { "value": 0.05, "label": "5 sentimo", "colour": "bronze", "relativeSize": 0.56 },
+      { "value": 0.25, "label": "25 sentimo", "colour": "bronze", "relativeSize": 0.64 },
+      { "value": 1, "label": "₱1", "colour": "silver", "relativeSize": 0.7 },
+      { "value": 5, "label": "₱5", "colour": "silver", "relativeSize": 0.78, "shape": "nonagon" },
+      { "value": 10, "label": "₱10", "colour": "silver", "relativeSize": 0.86 },
+      { "value": 20, "label": "₱20", "colour": "bi-metal", "relativeSize": 1 }
+    ],
+    "notes": [
+      { "value": 20, "label": "₱20", "colour": "orange", "relativeSize": 1 },
+      { "value": 50, "label": "₱50", "colour": "red", "relativeSize": 1 },
+      { "value": 100, "label": "₱100", "colour": "purple", "relativeSize": 1 },
+      { "value": 200, "label": "₱200", "colour": "green", "relativeSize": 1 },
+      { "value": 500, "label": "₱500", "colour": "yellow", "relativeSize": 1 },
+      { "value": 1000, "label": "₱1,000", "colour": "blue", "relativeSize": 1 }
+    ]
+  },
+
+  "MXN": {
+    "code": "MXN",
+    "flag": "🇲🇽",
+    "name": "Mexican Peso",
+    "symbol": "$",
+    "symbolPosition": "before",
+    "decimalPlaces": 2,
+    "keypadKey": ".",
+    "coinStyle": "bronze, silver and bi-metal coins",
+    "noteStyle": "historical and ecological notes with varied colours",
+    "coins": [
+      { "value": 0.1, "label": "10¢", "colour": "silver", "relativeSize": 0.52 },
+      { "value": 0.2, "label": "20¢", "colour": "silver", "relativeSize": 0.58, "shape": "dodecagon" },
+      { "value": 0.5, "label": "50¢", "colour": "silver", "relativeSize": 0.64, "shape": "notched-dodecagon" },
+      { "value": 1, "label": "$1", "colour": "bi-metal", "relativeSize": 0.72 },
+      { "value": 2, "label": "$2", "colour": "bi-metal", "relativeSize": 0.78 },
+      { "value": 5, "label": "$5", "colour": "bi-metal", "relativeSize": 0.84 },
+      { "value": 10, "label": "$10", "colour": "bi-metal", "relativeSize": 0.92 },
+      { "value": 20, "label": "$20", "colour": "bi-metal", "relativeSize": 1, "shape": "dodecagon" }
+    ],
+    "notes": [
+      { "value": 20, "label": "$20", "colour": "green-red", "relativeSize": 0.8 },
+      { "value": 50, "label": "$50", "colour": "purple", "relativeSize": 0.84 },
+      { "value": 100, "label": "$100", "colour": "red", "relativeSize": 0.88 },
+      { "value": 200, "label": "$200", "colour": "green", "relativeSize": 0.92 },
+      { "value": 500, "label": "$500", "colour": "blue", "relativeSize": 0.96 },
+      { "value": 1000, "label": "$1,000", "colour": "grey-brown", "relativeSize": 1 }
+    ]
+  },
+
+  "BRL": {
+    "code": "BRL",
+    "flag": "🇧🇷",
+    "name": "Brazilian Real",
+    "symbol": "R$",
+    "symbolPosition": "before",
+    "decimalPlaces": 2,
+    "keypadKey": ".",
+    "coinStyle": "copper, silver, gold and bi-metal coins",
+    "noteStyle": "colour-coded wildlife notes increasing in size",
+    "coins": [
+      { "value": 0.05, "label": "5c", "colour": "copper", "relativeSize": 0.62 },
+      { "value": 0.1, "label": "10c", "colour": "gold", "relativeSize": 0.68 },
+      { "value": 0.25, "label": "25c", "colour": "gold", "relativeSize": 0.76 },
+      { "value": 0.5, "label": "50c", "colour": "silver", "relativeSize": 0.84 },
+      { "value": 1, "label": "R$1", "colour": "bi-metal", "relativeSize": 1 }
+    ],
+    "notes": [
+      { "value": 2, "label": "R$2", "colour": "blue", "relativeSize": 0.76 },
+      { "value": 5, "label": "R$5", "colour": "purple", "relativeSize": 0.8 },
+      { "value": 10, "label": "R$10", "colour": "red", "relativeSize": 0.84 },
+      { "value": 20, "label": "R$20", "colour": "yellow", "relativeSize": 0.88 },
+      { "value": 50, "label": "R$50", "colour": "brown", "relativeSize": 0.92 },
+      { "value": 100, "label": "R$100", "colour": "blue-green", "relativeSize": 0.96 },
+      { "value": 200, "label": "R$200", "colour": "grey", "relativeSize": 1 }
+    ]
+  },
+
+  "ZAR": {
+    "code": "ZAR",
+    "flag": "🇿🇦",
+    "name": "South African Rand",
+    "symbol": "R",
+    "symbolPosition": "before",
+    "decimalPlaces": 2,
+    "keypadKey": ".",
+    "coinStyle": "bronze, silver and bi-metal coins",
+    "noteStyle": "wildlife and portrait notes with strong denomination colours",
+    "coins": [
+      { "value": 0.1, "label": "10c", "colour": "bronze", "relativeSize": 0.56 },
+      { "value": 0.2, "label": "20c", "colour": "bronze", "relativeSize": 0.62 },
+      { "value": 0.5, "label": "50c", "colour": "bronze", "relativeSize": 0.7 },
+      { "value": 1, "label": "R1", "colour": "silver", "relativeSize": 0.78 },
+      { "value": 2, "label": "R2", "colour": "silver", "relativeSize": 0.86 },
+      { "value": 5, "label": "R5", "colour": "bi-metal", "relativeSize": 1 }
+    ],
+    "notes": [
+      { "value": 10, "label": "R10", "colour": "green", "relativeSize": 0.82 },
+      { "value": 20, "label": "R20", "colour": "brown", "relativeSize": 0.87 },
+      { "value": 50, "label": "R50", "colour": "red", "relativeSize": 0.91 },
+      { "value": 100, "label": "R100", "colour": "blue", "relativeSize": 0.96 },
+      { "value": 200, "label": "R200", "colour": "orange", "relativeSize": 1 }
+    ]
+  }
+}

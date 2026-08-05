@@ -19,9 +19,8 @@ import {
   Ionicons,
 } from '@expo/vector-icons';
 
-import * as Clipboard from 'expo-clipboard';
-
 import CashieBottomNavigation from './CashieBottomNavigation';
+import CashiePageHeader from './CashiePageHeader.js';
 
 const COLORS = {
   paper: '#F8F4EA',
@@ -1330,6 +1329,15 @@ export default function CashieSettings({
         styles.screen
       }
     >
+            <CashiePageHeader
+        title="SETTINGS"
+        icon="back"
+        onIconPress={
+          onHome
+        }
+        iconAccessibilityLabel="Return to Wallet"
+      />
+
       <ScrollView
         showsVerticalScrollIndicator={
           false
@@ -1339,25 +1347,6 @@ export default function CashieSettings({
           styles.scrollContent
         }
       >
-        <View
-          style={
-            styles.header
-          }
-        >
-          <Text
-            style={
-              styles.headerTitle
-            }
-          >
-            SETTINGS
-          </Text>
-
-          <View
-            style={
-              styles.headerLine
-            }
-          />
-        </View>
 
         <CollapsibleSection
           title="MY WALLET"
@@ -1562,49 +1551,13 @@ const styles =
 
     scrollContent: {
       paddingTop:
-        54,
+        8,
 
       paddingHorizontal:
         18,
 
       paddingBottom:
         130,
-    },
-
-    header: {
-      marginBottom:
-        24,
-    },
-
-    headerTitle: {
-      color:
-        COLORS.leather,
-
-      fontSize:
-        28,
-
-      fontWeight:
-        '900',
-
-      letterSpacing:
-        2.6,
-    },
-
-    headerLine: {
-      width:
-        54,
-
-      height:
-        3,
-
-      marginTop:
-        9,
-
-      borderRadius:
-        2,
-
-      backgroundColor:
-        COLORS.copper,
     },
 
     section: {

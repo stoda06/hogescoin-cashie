@@ -23,7 +23,7 @@ function formatAud(value) {
 }
 
 export default function CashieMaxPayment({
-  maximumPaymentAud = 0,
+  maximumPaymentAud = 500,
 }) {
   return (
     <View

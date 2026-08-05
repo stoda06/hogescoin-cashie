@@ -24,16 +24,46 @@ const COLORS = {
   white: "#FFFDF8",
 };
 
-// Honest empty default: no fabricated history.
 const DEFAULT_PERSON = {
-  id: "",
-  name: "",
-  initials: "",
-  walletAddress: "",
-  paymentsSent: 0,
-  paymentsReceived: 0,
+  id: "mum",
+  name: "Mum",
+  initials: "MUM",
+  walletAddress: "cashie1q8g3...7k9m",
+  paymentsSent: 48,
+  paymentsReceived: 31,
   tileColor: "#4F5C5D",
-  activity: [],
+  activity: [
+    {
+      id: "1",
+      type: "received",
+      amount: "A$25.00",
+      date: "Today",
+    },
+    {
+      id: "2",
+      type: "sent",
+      amount: "A$10.00",
+      date: "Yesterday",
+    },
+    {
+      id: "3",
+      type: "received",
+      amount: "A$18.50",
+      date: "20 Jul",
+    },
+    {
+      id: "4",
+      type: "received",
+      amount: "A$40.00",
+      date: "17 Jul",
+    },
+    {
+      id: "5",
+      type: "sent",
+      amount: "A$15.00",
+      date: "15 Jul",
+    },
+  ],
 };
 
 function PersonCard({ person }) {
@@ -53,8 +83,7 @@ function PersonCard({ person }) {
         adjustsFontSizeToFit
         style={styles.personCardText}
       >
-        {person.initials ||
-          String(person.name || "").toUpperCase()}
+        {person.initials || person.name.toUpperCase()}
       </Text>
     </View>
   );
@@ -141,7 +170,6 @@ export default function CashiePersonDetailScreen({
   person = DEFAULT_PERSON,
   onBack,
   onPay,
-  onReturnToWallet,
   onEdit,
   onStatement,
   onDeleteHistory,
@@ -157,15 +185,13 @@ export default function CashiePersonDetailScreen({
     Alert.alert("Back", "This will return to Cashie People.");
   }
 
-  function handleReturnToWallet() {
-    const returnCallback = onReturnToWallet || onPay;
-
-    if (returnCallback) {
-      returnCallback(person);
+  function handlePay() {
+    if (onPay) {
+      onPay(person);
       return;
     }
 
-    Alert.alert("Return", "This will return to the wallet.");
+    Alert.alert(`Pay ${person.name}`, "This will open the payment flow.");
   }
 
 function handleEdit() {
@@ -275,9 +301,7 @@ function handleStatement() {
             <Text style={styles.backIcon}>‹</Text>
           </Pressable>
 
-          <Text style={styles.headerTitle}>
-            {String(person.name || "").toUpperCase()}
-          </Text>
+          <Text style={styles.headerTitle}>{person.name.toUpperCase()}</Text>
 
           <Pressable
             accessibilityRole="button"
@@ -314,13 +338,7 @@ function handleStatement() {
             <Text style={styles.sectionTitle}>RECENT ACTIVITY</Text>
 
             <View style={styles.activityCard}>
-              {(person.activity || []).length === 0 && (
-                <Text style={styles.emptyActivityText}>
-                  No payments recorded yet.
-                </Text>
-              )}
-
-              {(person.activity || []).map((activity, index) => (
+              {person.activity.map((activity, index) => (
                 <View key={activity.id}>
                   <ActivityRow
                     activity={activity}
@@ -337,9 +355,7 @@ function handleStatement() {
 
           <View style={styles.bottomActions}>
             <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Return to wallet"
-              onPress={handleReturnToWallet}
+              onPress={handlePay}
               style={({ pressed }) => [
                 styles.payButton,
                 pressed && styles.buttonPressed,
@@ -599,12 +615,6 @@ const styles = StyleSheet.create({
     height: 1,
     marginLeft: 52,
     backgroundColor: COLORS.line,
-  },
-
-  emptyActivityText: {
-    padding: 16,
-    color: COLORS.muted,
-    fontSize: 13,
   },
 
   bottomActions: {

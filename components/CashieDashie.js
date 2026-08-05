@@ -1,4 +1,7 @@
-import React from 'react';
+import React, {
+  useEffect,
+  useState,
+} from 'react';
 
 import {
   SafeAreaView,
@@ -30,45 +33,78 @@ const COLORS = {
   line: '#D8BF96',
 };
 
+const MINIMUM_BATTERY_REMINDER_AUD =
+  0.01;
+
+function clampMoney(
+  value,
+  minimum,
+  maximum
+) {
+  const numericValue =
+    Number(
+      value || 0
+    );
+
+  const roundedValue =
+    Math.round(
+      numericValue *
+        100
+    ) /
+    100;
+
+  return Math.min(
+    maximum,
+    Math.max(
+      minimum,
+      roundedValue
+    )
+  );
+}
+
 export default function CashieDashie({
-  batteryChargePercent,
-  estimatedPaymentsRemaining = 0,
-  estimatedRechargeCostAud = 2,
+  batteryChargePercent = 100,
+  batteryStatus = 'Ready',
+  estimatedPaymentsRemaining = 510,
 
-  batteryReserveAud = 0,
+  batteryReserveAud = 2,
   batteryMaximumAud = 2,
+  batteryReminderAud = 0.5,
 
-  currentMaxPaymentAud = 0,
+  currentMaxPaymentAud = 500,
 
-  paymentsMade = 0,
+  paymentsMade = 486,
   moneySentAud = 0,
   moneyReceivedAud = 0,
   peoplePaid = 0,
-  memberSince = '',
+  memberSince = 'July 2026',
 
-  hogesBalance = 0,
-  hogesBalanceAud = 0,
+  hogesBalance = 12500,
+  hogesBalanceAud = 100,
 
-  solOperatingReserve = 0,
-  solOperatingReserveAud = 0,
+  solOperatingReserve = 0.01,
+  solOperatingReserveAud = 2,
 
-  hogesPerSol = 0,
-  hogesPerSolAud = 0,
-  solPriceAud = 0,
+  hogesPerSol = 25000,
+  hogesPerSolAud = 0.008,
+  solPriceAud = 200,
 
   networkName = 'Solana',
-  networkConnected = false,
+  networkConnected = true,
 
-  priceFeedConnected = false,
-  networkFeedConnected = false,
-  swapFeedConnected = false,
+  priceFeedConnected = true,
+  networkFeedConnected = true,
+  swapFeedConnected = true,
 
-  walletAddress = '',
+  walletAddress =
+    'CashieWalletAddress123456789',
 
-  depositWalletAddress = '',
+  depositWalletAddress =
+    'DepositWalletAddress123456789',
 
   logbookEntries,
 
+  onBatteryReminderChange,
   onTopUpBattery,
 
   onLogbookEntryPress,
@@ -86,6 +122,40 @@ export default function CashieDashie({
         batteryMaximumAud ||
           0
       )
+    );
+
+  const [
+    localBatteryReminderAud,
+    setLocalBatteryReminderAud,
+  ] = useState(
+    clampMoney(
+      batteryReminderAud,
+      MINIMUM_BATTERY_REMINDER_AUD,
+      safeBatteryMaximumAud
+    )
+  );
+
+  useEffect(
+    () => {
+      setLocalBatteryReminderAud(
+        clampMoney(
+          batteryReminderAud,
+          MINIMUM_BATTERY_REMINDER_AUD,
+          safeBatteryMaximumAud
+        )
+      );
+    },
+    [
+      batteryReminderAud,
+      safeBatteryMaximumAud,
+    ]
+  );
+
+  const effectiveBatteryReminderAud =
+    clampMoney(
+      localBatteryReminderAud,
+      MINIMUM_BATTERY_REMINDER_AUD,
+      safeBatteryMaximumAud
     );
 
   const calculatedBatteryPercent =
@@ -140,6 +210,25 @@ export default function CashieDashie({
       )
     );
 
+  function handleBatteryReminderChange(
+    nextValue
+  ) {
+    const safeValue =
+      clampMoney(
+        nextValue,
+        MINIMUM_BATTERY_REMINDER_AUD,
+        safeBatteryMaximumAud
+      );
+
+    setLocalBatteryReminderAud(
+      safeValue
+    );
+
+    onBatteryReminderChange?.(
+      safeValue
+    );
+  }
+
   return (
     <SafeAreaView
       style={
@@ -151,10 +240,14 @@ export default function CashieDashie({
           styles.screen
         }
       >
-        <CashiePageHeader
+                <CashiePageHeader
           title="DASHBOARD"
           subtitle="Your wallet at a glance."
-          icon="dashboard"
+          icon="back"
+          onIconPress={
+            onHome
+          }
+          iconAccessibilityLabel="Return to Wallet"
         />
 
         <ScrollView
@@ -171,17 +264,28 @@ export default function CashieDashie({
             }
           >
             <CashieBattery
-              variant="dashboard"
-              chargePercent={
+              batteryReserveAud={
+                batteryReserveAud
+              }
+              batteryLimitAud={
+                safeBatteryMaximumAud
+              }
+              batteryReminderAud={
+                effectiveBatteryReminderAud
+              }
+              batteryChargePercent={
                 effectiveBatteryPercent
+              }
+              batteryStatus={
+                batteryStatus
               }
               estimatedPaymentsRemaining={
                 estimatedPaymentsRemaining
               }
-              estimatedRechargeCostAud={
-                estimatedRechargeCostAud
+              onBatteryReminderChange={
+                handleBatteryReminderChange
               }
-              onPress={
+              onTopUpBattery={
                 onTopUpBattery
               }
             />
@@ -293,14 +397,14 @@ export default function CashieDashie({
         </ScrollView>
 
         <CashieBottomNavigation
-          activeScreen="dashie"
+          activeItem="dashie"
           onHome={
             onHome
           }
           onPeople={
             onPeople
           }
-          onDashie={
+          onDashboard={
             onDashboard
           }
           onSettings={

@@ -19,45 +19,8 @@ const DEFAULT_DISPLAY_CURRENCIES = [
 const CACHE_DURATION_MS =
   60 * 60 * 1000;
 
-const DEFAULT_FETCH_TIMEOUT_MS =
-  15 * 1000;
-
 let cachedSnapshot =
   null;
-
-async function fetchWithTimeout(
-  url,
-  options = {},
-  timeoutMs =
-    DEFAULT_FETCH_TIMEOUT_MS
-) {
-  const controller =
-    new AbortController();
-
-  const timer =
-    setTimeout(
-      () => {
-        controller.abort();
-      },
-      timeoutMs
-    );
-
-  try {
-    return await fetch(
-      url,
-      {
-        ...options,
-
-        signal:
-          controller.signal,
-      }
-    );
-  } finally {
-    clearTimeout(
-      timer
-    );
-  }
-}
 
 function normaliseCurrency(
   currency = DEFAULT_BASE_CURRENCY
@@ -124,31 +87,6 @@ function isCacheFresh(
     Date.now() -
       fetchedAtMs <
     CACHE_DURATION_MS
-  );
-}
-
-/*
- * A cached snapshot may only be served when it holds
- * a rate entry for every requested currency, so a
- * snapshot fetched for one currency set is never
- * returned for a request needing other currencies.
- */
-function snapshotHasCurrencies(
-  snapshot,
-  currencies = []
-) {
-  if (
-    !snapshot?.rates
-  ) {
-    return false;
-  }
-
-  return currencies.every(
-    currency =>
-      Object.prototype.hasOwnProperty.call(
-        snapshot.rates,
-        currency
-      )
   );
 }
 
@@ -271,10 +209,6 @@ export async function fetchFxRates({
     cachedSnapshot
       .baseCurrency ===
       safeBaseCurrency &&
-    snapshotHasCurrencies(
-      cachedSnapshot,
-      requestedCurrencies
-    ) &&
     isCacheFresh()
   ) {
     return {
@@ -318,7 +252,7 @@ export async function fetchFxRates({
 
   try {
     const response =
-      await fetchWithTimeout(
+      await fetch(
         url,
         {
           method:
@@ -385,32 +319,12 @@ export async function fetchFxRates({
         {}
       );
 
-    /*
-     * Merge still-fresh rates for the same base into
-     * the new snapshot so previously fetched
-     * currencies stay available alongside the ones
-     * just requested.
-     */
-    const mergedRates =
-      cachedSnapshot
-        ?.baseCurrency ===
-        safeBaseCurrency &&
-      isCacheFresh()
-        ? {
-            ...cachedSnapshot
-              .rates,
-
-            ...rates,
-          }
-        : rates;
-
     cachedSnapshot =
       createSnapshot({
         baseCurrency:
           safeBaseCurrency,
 
-        rates:
-          mergedRates,
+        rates,
 
         sourceDate:
           data?.date ||
@@ -440,23 +354,10 @@ export async function fetchFxRates({
         .baseCurrency ===
         safeBaseCurrency
     ) {
-      /*
-       * Backfill any requested currency the cached
-       * snapshot is missing with a null rate so the
-       * returned shape always covers the request.
-       */
       return {
         ...cachedSnapshot,
 
         rates: {
-          ...createFallbackRates({
-            baseCurrency:
-              safeBaseCurrency,
-
-            currencies:
-              requestedCurrencies,
-          }),
-
           ...cachedSnapshot
             .rates,
         },

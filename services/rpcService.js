@@ -13,17 +13,8 @@ const DEFAULT_HISTORY_LIMIT =
 const DEFAULT_CONFIRMATION_TIMEOUT_MS =
   30_000;
 
-const MAX_CONFIRMATION_TIMEOUT_MS =
-  90_000;
-
 const DEFAULT_CONFIRMATION_INTERVAL_MS =
   1_000;
-
-const DEFAULT_FETCH_TIMEOUT_MS =
-  15_000;
-
-const TRANSACTION_FETCH_BATCH_SIZE =
-  5;
 
 let rpcRequestId =
   1;
@@ -143,109 +134,6 @@ function createRpcError({
   return error;
 }
 
-async function fetchWithTimeout(
-  url,
-  options = {},
-  timeoutMs =
-    DEFAULT_FETCH_TIMEOUT_MS
-) {
-  const controller =
-    new AbortController();
-
-  const timer =
-    setTimeout(
-      () => {
-        controller.abort();
-      },
-      timeoutMs
-    );
-
-  try {
-    return await fetch(
-      url,
-      {
-        ...options,
-
-        signal:
-          controller.signal,
-      }
-    );
-  } finally {
-    clearTimeout(
-      timer
-    );
-  }
-}
-
-/*
- * Converts a raw integer token amount string into a
- * UI amount by inserting the decimal point textually,
- * so large balances do not lose precision to float
- * division.
- */
-function rawAmountToUiAmount(
-  rawAmount,
-  decimals = 0
-) {
-  const amountText =
-    String(
-      rawAmount ?? '0'
-    ).trim();
-
-  if (
-    !/^\d+$/.test(
-      amountText
-    )
-  ) {
-    return 0;
-  }
-
-  const safeDecimals =
-    Math.max(
-      0,
-      Math.floor(
-        toSafeNumber(
-          decimals,
-          0
-        )
-      )
-    );
-
-  const digits =
-    amountText.replace(
-      /^0+(?=\d)/,
-      ''
-    );
-
-  const padded =
-    digits.padStart(
-      safeDecimals + 1,
-      '0'
-    );
-
-  const wholePart =
-    padded.slice(
-      0,
-      padded.length -
-        safeDecimals
-    );
-
-  const fractionPart =
-    safeDecimals > 0
-      ? padded.slice(
-          padded.length -
-            safeDecimals
-        )
-      : '';
-
-  return toSafeNumber(
-    fractionPart
-      ? `${wholePart}.${fractionPart}`
-      : wholePart,
-    0
-  );
-}
-
 function delay(
   milliseconds
 ) {
@@ -328,7 +216,7 @@ export async function rpcRequest({
 
   try {
     response =
-      await fetchWithTimeout(
+      await fetch(
         safeRpcUrl,
         {
           method:
@@ -523,34 +411,6 @@ export async function getLatestBlockhash({
   };
 }
 
-export async function getBlockHeight({
-  commitment =
-    DEFAULT_COMMITMENT,
-} = {}) {
-  const result =
-    await rpcRequest({
-      method:
-        'getBlockHeight',
-
-      params: [
-        {
-          commitment:
-            normaliseCommitment(
-              commitment
-            ),
-        },
-      ],
-    });
-
-  return Math.max(
-    0,
-    toSafeNumber(
-      result,
-      0
-    )
-  );
-}
-
 export async function getSolBalance({
   walletAddress,
   commitment =
@@ -725,76 +585,25 @@ export async function getTokenBalance({
       commitment,
     });
 
-  /*
-   * Sum the raw integer amounts as BigInt so large
-   * balances never lose precision to rounded floats.
-   */
-  const totalRawAmount =
+  const totalUiAmount =
     accounts.reduce(
       (
         total,
         account
-      ) => {
-        const rawText =
-          String(
-            account.rawAmount ||
-              '0'
-          );
-
-        if (
-          !/^\d+$/.test(
-            rawText
-          )
-        ) {
-          return total;
-        }
-
-        return (
-          total +
-          BigInt(
-            rawText
-          )
-        );
-      },
-      BigInt(0)
-    );
-
-  /*
-   * Decimals are identical for every account of the
-   * same mint, so take them from any account that
-   * reports one.
-   */
-  const decimals =
-    accounts.reduce(
-      (
-        found,
-        account
       ) =>
-        found !== null
-          ? found
-          : Number.isFinite(
-              account.decimals
-            ) &&
-            account.decimals > 0
-            ? account.decimals
-            : found,
-      null
-    ) ??
-    (
-      accounts.length > 0
-        ? accounts[0]
-            .decimals
-        : 0
+        total +
+        toSafeNumber(
+          account.uiAmount,
+          0
+        ),
+      0
     );
 
-  const rawAmount =
-    totalRawAmount.toString();
-
-  const totalUiAmount =
-    rawAmountToUiAmount(
-      rawAmount,
-      decimals
-    );
+  const decimals =
+    accounts.length > 0
+      ? accounts[0]
+          .decimals
+      : 0;
 
   return {
     walletAddress:
@@ -812,8 +621,6 @@ export async function getTokenBalance({
 
     uiAmount:
       totalUiAmount,
-
-    rawAmount,
 
     decimals,
 
@@ -1087,69 +894,42 @@ export async function getRecentTransactions({
     return signatures;
   }
 
-  /*
-   * Fetch transaction details in small sequential
-   * batches so public RPC endpoints do not respond
-   * with HTTP 429 rate limits.
-   */
   const transactions =
-    [];
+    await Promise.all(
+      signatures.map(
+        async item => {
+          try {
+            const transaction =
+              await getTransaction({
+                signature:
+                  item.signature,
 
-  for (
-    let start = 0;
-    start <
-    signatures.length;
-    start +=
-      TRANSACTION_FETCH_BATCH_SIZE
-  ) {
-    const batch =
-      signatures.slice(
-        start,
-        start +
-          TRANSACTION_FETCH_BATCH_SIZE
-      );
+                commitment,
+              });
 
-    const batchResults =
-      await Promise.all(
-        batch.map(
-          async item => {
-            try {
-              const transaction =
-                await getTransaction({
-                  signature:
-                    item.signature,
+            return {
+              ...item,
+              transaction,
+            };
+          } catch (
+            error
+          ) {
+            return {
+              ...item,
 
-                  commitment,
-                });
+              transaction:
+                null,
 
-              return {
-                ...item,
-                transaction,
-              };
-            } catch (
-              error
-            ) {
-              return {
-                ...item,
-
-                transaction:
-                  null,
-
-                fetchError:
-                  String(
-                    error?.message ||
-                      error
-                  ),
-              };
-            }
+              fetchError:
+                String(
+                  error?.message ||
+                    error
+                ),
+            };
           }
-        )
-      );
-
-    transactions.push(
-      ...batchResults
+        }
+      )
     );
-  }
 
   return transactions;
 }
@@ -1253,23 +1033,6 @@ export async function getSignatureStatuses({
   );
 }
 
-/*
- * Waits for a transaction signature to reach the
- * requested commitment.
- *
- * Pass the blockhash's lastValidBlockHeight so the
- * result can distinguish three outcomes:
- *
- * - confirmed: the transaction reached commitment.
- * - expired: the chain moved past
- *   lastValidBlockHeight without the transaction
- *   landing, so it can never land and is safe to
- *   retry with a fresh blockhash.
- * - stillPending: the overall time cap was reached
- *   but the transaction may STILL land on chain.
- *   Callers must NOT automatically resubmit on
- *   stillPending — doing so risks a double send.
- */
 export async function waitForSignatureConfirmation({
   signature,
   commitment =
@@ -1278,7 +1041,6 @@ export async function waitForSignatureConfirmation({
     DEFAULT_CONFIRMATION_TIMEOUT_MS,
   intervalMs =
     DEFAULT_CONFIRMATION_INTERVAL_MS,
-  lastValidBlockHeight = null,
 } = {}) {
   const safeSignature =
     String(
@@ -1298,42 +1060,14 @@ export async function waitForSignatureConfirmation({
       commitment
     );
 
-  const safeLastValidBlockHeight =
-    lastValidBlockHeight ===
-      null ||
-    lastValidBlockHeight ===
-      undefined
-      ? null
-      : Math.max(
-          0,
-          toSafeNumber(
-            lastValidBlockHeight,
-            0
-          )
-        );
-
   const safeTimeoutMs =
-    Math.min(
-      MAX_CONFIRMATION_TIMEOUT_MS,
-      Math.max(
-        1000,
-        toSafeNumber(
-          timeoutMs,
-          DEFAULT_CONFIRMATION_TIMEOUT_MS
-        )
+    Math.max(
+      1000,
+      toSafeNumber(
+        timeoutMs,
+        DEFAULT_CONFIRMATION_TIMEOUT_MS
       )
     );
-
-  /*
-   * With a lastValidBlockHeight the block height is
-   * authoritative, so keep polling up to the hard cap
-   * rather than the shorter default timeout.
-   */
-  const overallCapMs =
-    safeLastValidBlockHeight !==
-    null
-      ? MAX_CONFIRMATION_TIMEOUT_MS
-      : safeTimeoutMs;
 
   const safeIntervalMs =
     Math.max(
@@ -1350,7 +1084,7 @@ export async function waitForSignatureConfirmation({
   while (
     Date.now() -
       startedAt <
-    overallCapMs
+    safeTimeoutMs
   ) {
     const [
       status,
@@ -1368,12 +1102,6 @@ export async function waitForSignatureConfirmation({
         ...status,
 
         confirmed:
-          false,
-
-        expired:
-          false,
-
-        stillPending:
           false,
 
         timedOut:
@@ -1409,76 +1137,9 @@ export async function waitForSignatureConfirmation({
         confirmed:
           true,
 
-        expired:
-          false,
-
-        stillPending:
-          false,
-
         timedOut:
           false,
       };
-    }
-
-    if (
-      safeLastValidBlockHeight !==
-      null
-    ) {
-      let currentBlockHeight =
-        null;
-
-      try {
-        currentBlockHeight =
-          await getBlockHeight({
-            commitment:
-              safeCommitment,
-          });
-      } catch {
-        currentBlockHeight =
-          null;
-      }
-
-      if (
-        currentBlockHeight !==
-          null &&
-        currentBlockHeight >
-          safeLastValidBlockHeight
-      ) {
-        /*
-         * The blockhash has expired, so the
-         * transaction can never land. It is safe to
-         * retry with a fresh blockhash.
-         */
-        return {
-          signature:
-            safeSignature,
-
-          confirmed:
-            false,
-
-          expired:
-            true,
-
-          stillPending:
-            false,
-
-          timedOut:
-            false,
-
-          currentBlockHeight,
-
-          lastValidBlockHeight:
-            safeLastValidBlockHeight,
-
-          error:
-            null,
-
-          confirmationStatus:
-            status
-              ?.confirmationStatus ||
-            null,
-        };
-      }
     }
 
     await delay(
@@ -1486,23 +1147,12 @@ export async function waitForSignatureConfirmation({
     );
   }
 
-  /*
-   * The time cap was reached without proof of expiry:
-   * the transaction may STILL land. Callers must not
-   * blindly resubmit on stillPending.
-   */
   return {
     signature:
       safeSignature,
 
     confirmed:
       false,
-
-    expired:
-      false,
-
-    stillPending:
-      true,
 
     timedOut:
       true,
@@ -1592,7 +1242,6 @@ export async function sendAndConfirmSignedTransaction({
   maxRetries = 3,
   timeoutMs =
     DEFAULT_CONFIRMATION_TIMEOUT_MS,
-  lastValidBlockHeight = null,
 } = {}) {
   const submission =
     await sendSignedTransaction({
@@ -1611,8 +1260,6 @@ export async function sendAndConfirmSignedTransaction({
       commitment,
 
       timeoutMs,
-
-      lastValidBlockHeight,
     });
 
   return {

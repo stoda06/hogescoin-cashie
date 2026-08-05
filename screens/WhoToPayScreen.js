@@ -18,7 +18,7 @@ import {
   Ionicons,
 } from '@expo/vector-icons';
 
-import validateAddress from '../utils/validateAddress.js';
+import CashieBottomNavigation from '../components/CashieBottomNavigation.js';
 
 const COLORS = {
   paper: '#F8F4EA',
@@ -90,6 +90,84 @@ function shortenAddress(
   )}...${value.slice(
     -6
   )}`;
+}
+
+function PaymentMethodCard({
+  icon,
+  title,
+  description,
+  accessibilityLabel,
+  onPress,
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={
+        accessibilityLabel
+      }
+      onPress={
+        onPress
+      }
+      style={({
+        pressed,
+      }) => [
+        styles.paymentMethodCard,
+
+        pressed &&
+          styles.paymentMethodCardPressed,
+      ]}
+    >
+      <View
+        style={
+          styles.paymentMethodMedallion
+        }
+      >
+        <Ionicons
+          name={
+            icon
+          }
+          size={
+            29
+          }
+          color={
+            COLORS.lightCream
+          }
+        />
+      </View>
+
+      <View
+        style={
+          styles.paymentMethodCopy
+        }
+      >
+        <Text
+          style={
+            styles.paymentMethodTitle
+          }
+        >
+          {title}
+        </Text>
+
+        <Text
+          style={
+            styles.paymentMethodText
+          }
+        >
+          {description}
+        </Text>
+      </View>
+
+      <Ionicons
+        name="chevron-forward"
+        size={
+          25
+        }
+        color={
+          COLORS.copperLight
+        }
+      />
+    </Pressable>
+  );
 }
 
 function PersonTile({
@@ -203,9 +281,15 @@ export default function WhoToPayScreen({
   cashiePeople = [],
 
   onScan,
+  onTap,
   onSelectPerson,
   onPasteAddress,
+
   onBack,
+  onHome,
+  onPeople,
+  onDashboard,
+  onSettings,
 }) {
   const [
     walletAddress,
@@ -259,18 +343,6 @@ export default function WhoToPayScreen({
     ) {
       setAddressError(
         'Enter a wallet address.'
-      );
-
-      return;
-    }
-
-    if (
-      !validateAddress(
-        cleanedAddress
-      )
-    ) {
-      setAddressError(
-        'That does not look like a Solana wallet address. Check it and try again.'
       );
 
       return;
@@ -374,69 +446,31 @@ export default function WhoToPayScreen({
             styles.content
           }
         >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Scan payment QR code"
-            onPress={
-              onScan
+          <View
+            style={
+              styles.paymentMethods
             }
-            style={({
-              pressed,
-            }) => [
-              styles.scanCard,
-
-              pressed &&
-                styles.scanCardPressed,
-            ]}
           >
-            <View
-              style={
-                styles.scanMedallion
-              }
-            >
-              <Ionicons
-                name="scan-outline"
-                size={
-                  30
-                }
-                color={
-                  COLORS.lightCream
-                }
-              />
-            </View>
-
-            <View
-              style={
-                styles.scanCopy
-              }
-            >
-              <Text
-                style={
-                  styles.scanTitle
-                }
-              >
-                SCAN QR CODE
-              </Text>
-
-              <Text
-                style={
-                  styles.scanText
-                }
-              >
-                Scan their Cashie or merchant QR
-              </Text>
-            </View>
-
-            <Ionicons
-              name="chevron-forward"
-              size={
-                25
-              }
-              color={
-                COLORS.copperLight
+            <PaymentMethodCard
+              icon="scan-outline"
+              title="SCAN QR CODE"
+              description="Scan their Cashie QR"
+              accessibilityLabel="Scan payment QR code"
+              onPress={
+                onScan
               }
             />
-          </Pressable>
+
+            <PaymentMethodCard
+              icon="phone-portrait-outline"
+              title="TAP"
+              description="Hold your phones together"
+              accessibilityLabel="Pay by tapping phones"
+              onPress={
+                onTap
+              }
+            />
+          </View>
 
           {preparedPeople.length >
           0 ? (
@@ -588,7 +622,15 @@ export default function WhoToPayScreen({
               </Pressable>
             </View>
           </View>
-        </ScrollView>
+                </ScrollView>
+
+                <CashieBottomNavigation
+          activeItem="home"
+          onHome={onHome}
+          onPeople={onPeople}
+          onDashboard={onDashboard}
+          onSettings={onSettings}
+        />
       </View>
     </SafeAreaView>
   );
@@ -747,12 +789,17 @@ const styles =
         16,
 
       paddingBottom:
-        30,
+        96,
     },
 
-    scanCard: {
+    paymentMethods: {
+      gap:
+        10,
+    },
+
+    paymentMethodCard: {
       minHeight:
-        91,
+        82,
 
       flexDirection:
         'row',
@@ -783,20 +830,20 @@ const styles =
           0,
 
         height:
-          5,
+          4,
       },
 
       shadowOpacity:
-        0.23,
+        0.2,
 
       shadowRadius:
-        8,
+        7,
 
       elevation:
-        6,
+        5,
     },
 
-    scanCardPressed: {
+    paymentMethodCardPressed: {
       opacity:
         0.72,
 
@@ -808,12 +855,12 @@ const styles =
       ],
     },
 
-    scanMedallion: {
+    paymentMethodMedallion: {
       width:
-        54,
+        50,
 
       height:
-        54,
+        50,
 
       alignItems:
         'center',
@@ -822,7 +869,7 @@ const styles =
         'center',
 
       borderRadius:
-        27,
+        25,
 
       borderWidth:
         2,
@@ -837,17 +884,17 @@ const styles =
         14,
     },
 
-    scanCopy: {
+    paymentMethodCopy: {
       flex:
         1,
     },
 
-    scanTitle: {
+    paymentMethodTitle: {
       color:
         COLORS.lightCream,
 
       fontSize:
-        16,
+        15,
 
       fontWeight:
         '800',
@@ -856,10 +903,10 @@ const styles =
         0.7,
 
       marginBottom:
-        4,
+        3,
     },
 
-    scanText: {
+    paymentMethodText: {
       color:
         COLORS.cream,
 

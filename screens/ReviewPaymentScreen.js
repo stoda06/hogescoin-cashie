@@ -1,6 +1,4 @@
-import React, {
-  useState,
-} from 'react';
+import React from 'react';
 
 import {
   Pressable,
@@ -111,11 +109,6 @@ export default function ReviewPaymentScreen({
   onPay,
   onBack,
 }) {
-  const [
-    isPaying,
-    setIsPaying,
-  ] = useState(false);
-
   const displayAmount =
     formatAmount(amount);
 
@@ -123,16 +116,6 @@ export default function ReviewPaymentScreen({
     shortenAddress(
       walletAddress
     );
-
-  function handlePay() {
-    if (isPaying) {
-      return;
-    }
-
-    setIsPaying(true);
-
-    onPay?.();
-  }
 
   return (
     <SafeAreaView
@@ -372,19 +355,12 @@ export default function ReviewPaymentScreen({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`Pay ${currencySymbol}${displayAmount}`}
-              accessibilityState={{
-                disabled: isPaying,
-              }}
-              disabled={isPaying}
-              onPress={handlePay}
+              onPress={onPay}
               style={({ pressed }) => [
                 styles.payButton,
 
                 pressed &&
                   styles.payButtonPressed,
-
-                isPaying &&
-                  styles.payButtonDisabled,
               ]}
             >
               <Text
@@ -810,10 +786,6 @@ const styles =
           translateY: 1,
         },
       ],
-    },
-
-    payButtonDisabled: {
-      opacity: 0.5,
     },
 
     payButtonLabel: {

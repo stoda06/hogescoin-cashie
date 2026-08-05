@@ -10,8 +10,6 @@ import {
   View,
 } from "react-native";
 
-import validateAddress from "../utils/validateAddress.js";
-
 const COLORS = {
   paper: "#F8F3E8",
   paperDark: "#EEE5D8",
@@ -67,10 +65,7 @@ export default function CashiePersonForm({
     setWalletAddress(person.walletAddress || "");
     setInitials(person.initials || getInitials(person.name || ""));
     setError("");
-    // Re-key on the stable person id so inline-object props do not
-    // clobber in-progress typing on every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [person?.id]);
+  }, [person]);
 
   const title = isEditing ? "EDIT CASHIE PERSON" : "ADD CASHIE PERSON";
   const saveLabel = isEditing ? "SAVE CHANGES" : "ADD PERSON";
@@ -128,13 +123,6 @@ export default function CashiePersonForm({
 
     if (!cleanWalletAddress) {
       setError("Enter or scan their wallet address.");
-      return;
-    }
-
-    if (!validateAddress(cleanWalletAddress)) {
-      setError(
-        "That does not look like a Solana wallet address. Check it and try again."
-      );
       return;
     }
 

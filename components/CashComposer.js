@@ -11,17 +11,21 @@ import {
   View,
 } from 'react-native';
 
+import Svg, {
+  Polygon,
+} from 'react-native-svg';
+
 import {
-  AUD_COINS,
-  AUD_NOTES,
   CASHIE_COLOURS,
 } from '../utils/constants.js';
 
-const MAX_AMOUNT_CENTS = 99999999;
+const MAXIMUM_MINOR_UNITS =
+  999999999999;
 
 const FALLBACK_COLOURS = {
   darkLeather: '#382015',
   leather: '#512B1A',
+
   copper: '#B96E32',
   copperLight: '#D49156',
   copperDark: '#79401D',
@@ -40,12 +44,6 @@ const FALLBACK_COLOURS = {
 const COLOURS = {
   ...FALLBACK_COLOURS,
   ...(CASHIE_COLOURS || {}),
-
-  // CASHIE_COLOURS.mutedText is a light tan designed for
-  // dark leather backgrounds; this composer renders its
-  // muted text on pale paper, so keep the dark fallback.
-  mutedText:
-    FALLBACK_COLOURS.mutedText,
 };
 
 const KEYPAD_KEYS = [
@@ -63,30 +61,157 @@ const KEYPAD_KEYS = [
   '⌫',
 ];
 
-function normaliseCents(
-  amount
+function getDecimalPlaces(
+  currency
 ) {
-  return Math.max(
-    0,
-    Math.round(
-      Number(amount || 0) *
-        100
+  const suppliedDecimalPlaces =
+    Number(
+      currency?.decimalPlaces
+    );
+
+  if (
+    Number.isInteger(
+      suppliedDecimalPlaces
+    ) &&
+    suppliedDecimalPlaces >=
+      0 &&
+    suppliedDecimalPlaces <=
+      4
+  ) {
+    return suppliedDecimalPlaces;
+  }
+
+  return 2;
+}
+
+function getMinorUnitScale(
+  currency
+) {
+  return Math.pow(
+    10,
+    getDecimalPlaces(
+      currency
     )
   );
 }
 
-function formatAmount(
-  cents
+function normaliseMinorUnits(
+  amount,
+  currency
+) {
+  const numericAmount =
+    Number(
+      amount ||
+        0
+    );
+
+  if (
+    !Number.isFinite(
+      numericAmount
+    )
+  ) {
+    return 0;
+  }
+
+  return Math.max(
+    0,
+    Math.round(
+      numericAmount *
+        getMinorUnitScale(
+          currency
+        )
+    )
+  );
+}
+
+function minorUnitsToAmount(
+  minorUnits,
+  currency
 ) {
   return (
-    Number(cents || 0) /
-    100
+    Number(
+      minorUnits ||
+        0
+    ) /
+    getMinorUnitScale(
+      currency
+    )
+  );
+}
+
+function formatNumber(
+  amount,
+  currency
+) {
+  const decimalPlaces =
+    getDecimalPlaces(
+      currency
+    );
+
+  return Number(
+    amount ||
+      0
   ).toLocaleString(
     'en-AU',
     {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      minimumFractionDigits:
+        decimalPlaces,
+
+      maximumFractionDigits:
+        decimalPlaces,
     }
+  );
+}
+
+function formatLocalAmount(
+  minorUnits,
+  currency,
+  fallbackSymbol = '$'
+) {
+  const amount =
+    minorUnitsToAmount(
+      minorUnits,
+      currency
+    );
+
+  const formattedNumber =
+    formatNumber(
+      amount,
+      currency
+    );
+
+  const symbol =
+    String(
+      currency?.symbol ||
+        fallbackSymbol ||
+        ''
+    );
+
+  if (
+    currency?.symbolPosition ===
+    'after'
+  ) {
+    return `${formattedNumber} ${symbol}`;
+  }
+
+  return `${symbol}${formattedNumber}`;
+}
+
+function denominationToMinorUnits(
+  value,
+  currency
+) {
+  return Math.max(
+    0,
+    Math.round(
+      Number(
+        value ||
+          0
+      ) *
+        getMinorUnitScale(
+          currency
+        )
+    )
   );
 }
 
@@ -101,8 +226,12 @@ function MethodButton({
       accessibilityState={{
         selected,
       }}
-      onPress={onPress}
-      style={({ pressed }) => [
+      onPress={
+        onPress
+      }
+      style={({
+        pressed,
+      }) => [
         styles.methodButton,
 
         selected &&
@@ -131,42 +260,58 @@ function Keypad({
 }) {
   return (
     <View
-      style={styles.keypad}
+      style={
+        styles.keypad
+      }
     >
-      {KEYPAD_KEYS.map(key => (
-        <Pressable
-          key={key}
-          accessibilityRole="button"
-          accessibilityLabel={
-            key === 'C'
-              ? 'Clear amount'
-              : key === '⌫'
-                ? 'Delete last digit'
-                : key
-          }
-          onPress={() =>
-            onKeyPress(key)
-          }
-          style={({ pressed }) => [
-            styles.key,
+      {KEYPAD_KEYS.map(
+        key => (
+          <Pressable
+            key={
+              key
+            }
+            accessibilityRole="button"
+            accessibilityLabel={
+              key ===
+              'C'
+                ? 'Clear amount'
+                : key ===
+                    '⌫'
+                  ? 'Delete last digit'
+                  : key
+            }
+            onPress={() =>
+              onKeyPress(
+                key
+              )
+            }
+            style={({
+              pressed,
+            }) => [
+              styles.key,
 
-            pressed &&
-              styles.keyPressed,
-          ]}
-        >
-          <Text
-            style={[
-              styles.keyText,
-
-              (key === 'C' ||
-                key === '⌫') &&
-                styles.keyUtilityText,
+              pressed &&
+                styles.keyPressed,
             ]}
           >
-            {key}
-          </Text>
-        </Pressable>
-      ))}
+            <Text
+              style={[
+                styles.keyText,
+
+                (
+                  key ===
+                    'C' ||
+                  key ===
+                    '⌫'
+                ) &&
+                  styles.keyUtilityText,
+              ]}
+            >
+              {key}
+            </Text>
+          </Pressable>
+        )
+      )}
     </View>
   );
 }
@@ -178,9 +323,15 @@ function NoteButton({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Add ${note.label}`}
-      onPress={onPress}
-      style={({ pressed }) => [
+      accessibilityLabel={
+        `Add ${note.label}`
+      }
+      onPress={
+        onPress
+      }
+      style={({
+        pressed,
+      }) => [
         styles.note,
 
         {
@@ -193,7 +344,9 @@ function NoteButton({
       ]}
     >
       <View
-        style={styles.noteMark}
+        style={
+          styles.noteMark
+        }
       >
         <Text
           style={
@@ -205,6 +358,13 @@ function NoteButton({
       </View>
 
       <Text
+        numberOfLines={
+          1
+        }
+        adjustsFontSizeToFit
+        minimumFontScale={
+          0.68
+        }
         style={
           styles.noteValue
         }
@@ -223,59 +383,327 @@ function NoteButton({
   );
 }
 
+function createPolygonPoints({
+  sides,
+  size,
+  innerRatio = 1,
+  rotationOffset = 0,
+}) {
+  const centre =
+    size /
+    2;
+
+  const outerRadius =
+    size /
+      2 -
+    2;
+
+  return Array.from(
+    {
+      length:
+        sides,
+    },
+    (
+      unused,
+      index
+    ) => {
+      const angle =
+        (
+          Math.PI *
+          2 *
+          index
+        ) /
+          sides -
+        Math.PI /
+          2 +
+        rotationOffset;
+
+      const radius =
+        index %
+          2 ===
+        0
+          ? outerRadius
+          : outerRadius *
+            innerRatio;
+
+      const x =
+        centre +
+        Math.cos(
+          angle
+        ) *
+          radius;
+
+      const y =
+        centre +
+        Math.sin(
+          angle
+        ) *
+          radius;
+
+      return `${x},${y}`;
+    }
+  ).join(
+    ' '
+  );
+}
+
+function getCoinShapeDetails(
+  shape
+) {
+  switch (
+    String(
+      shape ||
+        'round'
+    ).toLowerCase()
+  ) {
+    case 'curved-heptagon':
+      return {
+        sides:
+          14,
+
+        innerRatio:
+          0.95,
+
+        rotationOffset:
+          Math.PI /
+          14,
+      };
+
+    case 'hendecagon':
+      return {
+        sides:
+          11,
+
+        innerRatio:
+          1,
+
+        rotationOffset:
+          Math.PI /
+          11,
+      };
+
+    case 'nonagon':
+      return {
+        sides:
+          9,
+
+        innerRatio:
+          1,
+
+        rotationOffset:
+          Math.PI /
+          9,
+      };
+
+    case 'scalloped':
+      return {
+        sides:
+          24,
+
+        innerRatio:
+          0.85,
+
+        rotationOffset:
+          0,
+      };
+
+    case 'notched-dodecagon':
+      return {
+        sides:
+          24,
+
+        innerRatio:
+          0.87,
+
+        rotationOffset:
+          Math.PI /
+          24,
+      };
+
+    case 'dodecagon':
+      return {
+        sides:
+          12,
+
+        innerRatio:
+          1,
+
+        rotationOffset:
+          Math.PI /
+          12,
+      };
+
+    case 'round':
+    default:
+      return {
+        sides:
+          48,
+
+        innerRatio:
+          1,
+
+        rotationOffset:
+          0,
+      };
+  }
+}
+
+function getCoinColours(
+  type
+) {
+  if (
+    type ===
+    'gold'
+  ) {
+    return {
+      fill:
+        '#C99A35',
+
+      border:
+        '#F0D27A',
+    };
+  }
+
+  if (
+    type ===
+    'copper'
+  ) {
+    return {
+      fill:
+        '#A85D38',
+
+      border:
+        '#D99068',
+    };
+  }
+
+  return {
+    fill:
+      '#A8ADB1',
+
+    border:
+      '#E0E3E5',
+  };
+}
+
 function CoinButton({
   coin,
   onPress,
 }) {
+  const shapeDetails =
+    getCoinShapeDetails(
+      coin.shape
+    );
+
+  const colours =
+    getCoinColours(
+      coin.type
+    );
+
+  const points =
+    createPolygonPoints({
+      sides:
+        shapeDetails.sides,
+
+      size:
+        coin.size,
+
+      innerRatio:
+        shapeDetails.innerRatio,
+
+      rotationOffset:
+        shapeDetails.rotationOffset,
+    });
+
   return (
     <View
-      style={styles.coinSlot}
+      style={
+        styles.coinSlot
+      }
     >
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Add ${coin.label}`}
-        onPress={onPress}
-        style={({ pressed }) => [
+        accessibilityLabel={
+          `Add ${coin.label}`
+        }
+        onPress={
+          onPress
+        }
+        style={({
+          pressed,
+        }) => [
           styles.coin,
 
           {
-            width: coin.size,
-            height: coin.size,
-            borderRadius:
-              coin.size / 2,
+            width:
+              coin.size,
+
+            height:
+              coin.size,
           },
-
-          coin.type ===
-            'gold' &&
-            styles.goldCoin,
-
-          coin.type ===
-            'silver' &&
-            styles.silverCoin,
-
-          coin.type ===
-            'copper' &&
-            styles.copperCoin,
 
           pressed &&
             styles.coinPressed,
         ]}
       >
-        <Text
+        <Svg
+          pointerEvents="none"
+          width={
+            coin.size
+          }
+          height={
+            coin.size
+          }
           style={
-            styles.coinValue
+            styles.coinShape
           }
         >
-          {coin.label}
-        </Text>
+          <Polygon
+            points={
+              points
+            }
+            fill={
+              colours.fill
+            }
+            stroke={
+              colours.border
+            }
+            strokeWidth={
+              3
+            }
+            strokeLinejoin="round"
+          />
+        </Svg>
 
-        <Text
+        <View
+          pointerEvents="none"
           style={
-            styles.coinMark
+            styles.coinContent
           }
         >
-          H
-        </Text>
+          <Text
+            numberOfLines={
+              1
+            }
+            adjustsFontSizeToFit
+            minimumFontScale={
+              0.58
+            }
+            style={
+              styles.coinValue
+            }
+          >
+            {coin.label}
+          </Text>
+
+          <Text
+            style={
+              styles.coinMark
+            }
+          >
+            H
+          </Text>
+        </View>
       </Pressable>
     </View>
   );
@@ -285,12 +713,21 @@ export default function CashComposer({
   mode = 'pay',
   amount = 0,
   maximumAmount = 0,
+
   currencySymbol = '$',
+  currency,
+
   onAmountChange,
   onCancel,
 }) {
   const isReceive =
-    mode === 'receive';
+    mode ===
+    'receive';
+
+  const decimalPlaces =
+    getDecimalPlaces(
+      currency
+    );
 
   const [
     activeMethod,
@@ -304,222 +741,318 @@ export default function CashComposer({
   const [
     keypadDigits,
     setKeypadDigits,
-  ] = useState('');
+  ] = useState(
+    ''
+  );
 
   const [
     denominationHistory,
     setDenominationHistory,
-  ] = useState([]);
+  ] = useState(
+    []
+  );
 
-  const [
-    showMaximumHint,
-    setShowMaximumHint,
-  ] = useState(false);
-
-  const amountCents =
-    normaliseCents(amount);
-
-  const maximumCents =
-    Math.min(
-      normaliseCents(
-        maximumAmount
-      ),
-      MAX_AMOUNT_CENTS
+  const amountMinorUnits =
+    normaliseMinorUnits(
+      amount,
+      currency
     );
 
-  const remainingCents =
+  const maximumMinorUnits =
+    Math.min(
+      normaliseMinorUnits(
+        maximumAmount,
+        currency
+      ),
+      MAXIMUM_MINOR_UNITS
+    );
+
+  const remainingMinorUnits =
     Math.max(
-      maximumCents -
-        amountCents,
+      maximumMinorUnits -
+        amountMinorUnits,
       0
     );
 
-  const noBalance =
-    maximumCents === 0;
+  useEffect(
+    () => {
+      if (
+        isReceive
+      ) {
+        setActiveMethod(
+          'keypad'
+        );
+      }
+    },
+    [
+      isReceive,
+    ]
+  );
 
-  useEffect(() => {
-    if (!showMaximumHint) {
-      return undefined;
-    }
+  useEffect(
+    () => {
+      const externalDigits =
+        amountMinorUnits >
+        0
+          ? String(
+              amountMinorUnits
+            )
+          : '';
 
-    const timer =
-      setTimeout(
-        () =>
-          setShowMaximumHint(
-            false
-          ),
-        1600
+      setKeypadDigits(
+        externalDigits
+      );
+    },
+    [
+      amountMinorUnits,
+    ]
+  );
+
+  useEffect(
+    () => {
+      setDenominationHistory(
+        []
       );
 
-    return () =>
-      clearTimeout(timer);
-  }, [showMaximumHint]);
-
-  useEffect(() => {
-    if (isReceive) {
-      setActiveMethod(
-        'keypad'
+      setKeypadDigits(
+        amountMinorUnits >
+        0
+          ? String(
+              amountMinorUnits
+            )
+          : ''
       );
-    }
-  }, [isReceive]);
+    },
+    [
+      currency,
+    ]
+  );
 
-  useEffect(() => {
-    const externalDigits =
-      amountCents > 0
-        ? String(
-            amountCents
+  const notes =
+    useMemo(
+      () => {
+        const sourceNotes =
+          Array.isArray(
+            currency?.notes
           )
-        : '';
+            ? currency.notes
+            : [];
 
-    setKeypadDigits(
-      externalDigits
-    );
-  }, [amountCents]);
+        const noteColours = {
+          blue:
+            '#548FA8',
 
-  const notes = useMemo(() => {
-    const suppliedNotes =
-      Array.isArray(
-        AUD_NOTES
-      )
-        ? AUD_NOTES
-        : [];
+          green:
+            '#73845A',
 
-    const defaults = [
-      {
-        label: '$100',
-        value: 10000,
-        colour: '#73845A',
-      },
-      {
-        label: '$50',
-        value: 5000,
-        colour: '#D5A83E',
-      },
-      {
-        label: '$20',
-        value: 2000,
-        colour: '#C96558',
-      },
-      {
-        label: '$10',
-        value: 1000,
-        colour: '#548FA8',
-      },
-      {
-        label: '$5',
-        value: 500,
-        colour: '#9B7598',
-      },
-    ];
+          red:
+            '#C96558',
 
-    return defaults.map(
-      defaultNote => {
-        const supplied =
-          suppliedNotes.find(
+          'red-orange':
+            '#C96558',
+
+          orange:
+            '#C98247',
+
+          purple:
+            '#9B7598',
+
+          yellow:
+            '#D5A83E',
+
+          brown:
+            '#89634E',
+
+          grey:
+            '#8A8782',
+
+          gray:
+            '#8A8782',
+
+          'grey-purple':
+            '#8D8093',
+
+          'blue-green':
+            '#598A87',
+
+          'green-blue':
+            '#598A87',
+
+          'pink-red':
+            '#B96875',
+
+          'yellow-brown':
+            '#B89A56',
+
+          'orange-brown':
+            '#A86F45',
+
+          'green-yellow':
+            '#A0A55C',
+
+          pink:
+            '#B96888',
+
+          violet:
+            '#8A6F9E',
+
+          turquoise:
+            '#4E9694',
+        };
+
+        return sourceNotes
+          .map(
+            (
+              note,
+              index
+            ) => ({
+              ...note,
+
+              value:
+                denominationToMinorUnits(
+                  note.value,
+                  currency
+                ),
+
+              colour:
+                noteColours[
+                  String(
+                    note.colour ||
+                      ''
+                  ).toLowerCase()
+                ] ||
+                note.colour ||
+                [
+                  '#73845A',
+                  '#D5A83E',
+                  '#C96558',
+                  '#548FA8',
+                  '#9B7598',
+                ][
+                  index %
+                    5
+                ],
+            })
+          )
+          .filter(
             note =>
-              Number(
-                note.value
-              ) ===
-              defaultNote.value
+              note.value >
+              0
+          )
+          .sort(
+            (
+              first,
+              second
+            ) =>
+              second.value -
+              first.value
           );
-
-        return {
-          ...defaultNote,
-          ...supplied,
-
-          colour:
-            supplied?.colour ||
-            defaultNote.colour,
-        };
-      }
+      },
+      [
+        currency,
+      ]
     );
-  }, []);
 
-  const coins = useMemo(() => {
-    const suppliedCoins =
-      Array.isArray(
-        AUD_COINS
-      )
-        ? AUD_COINS
-        : [];
+  const coins =
+    useMemo(
+      () => {
+        const sourceCoins =
+          Array.isArray(
+            currency?.coins
+          )
+            ? currency.coins
+            : [];
 
-    const defaults = [
-      {
-        label: '$2',
-        value: 200,
-        type: 'gold',
-        size: 58,
-      },
-      {
-        label: '$1',
-        value: 100,
-        type: 'gold',
-        size: 52,
-      },
-      {
-        label: '50c',
-        value: 50,
-        type: 'silver',
-        size: 60,
-      },
-      {
-        label: '20c',
-        value: 20,
-        type: 'silver',
-        size: 52,
-      },
-      {
-        label: '10c',
-        value: 10,
-        type: 'silver',
-        size: 44,
-      },
-      {
-        label: '5c',
-        value: 5,
-        type: 'silver',
-        size: 40,
-      },
-      {
-        label: '2c',
-        value: 2,
-        type: 'copper',
-        size: 36,
-      },
-      {
-        label: '1c',
-        value: 1,
-        type: 'copper',
-        size: 32,
-      },
-    ];
+        return sourceCoins
+          .map(
+            coin => {
+              const coinColour =
+                String(
+                  coin.colour ||
+                    ''
+                ).toLowerCase();
 
-    return defaults.map(
-      defaultCoin => {
-        const supplied =
-          suppliedCoins.find(
+              let type =
+                'silver';
+
+              if (
+                coinColour.includes(
+                  'gold'
+                ) ||
+                coinColour.includes(
+                  'bi-metal'
+                ) ||
+                coinColour.includes(
+                  'bimetal'
+                ) ||
+                coinColour.includes(
+                  'brass'
+                )
+              ) {
+                type =
+                  'gold';
+              } else if (
+                coinColour.includes(
+                  'copper'
+                ) ||
+                coinColour.includes(
+                  'bronze'
+                )
+              ) {
+                type =
+                  'copper';
+              }
+
+              return {
+                ...coin,
+
+                shape:
+                  coin.shape ||
+                  'round',
+
+                value:
+                  denominationToMinorUnits(
+                    coin.value,
+                    currency
+                  ),
+
+                type,
+
+                size:
+                  Math.max(
+                    32,
+                    Math.min(
+                      64,
+                      Math.round(
+                        60 *
+                          Number(
+                            coin.relativeSize ||
+                              0.7
+                          )
+                      )
+                    )
+                  ),
+              };
+            }
+          )
+          .filter(
             coin =>
-              Number(
-                coin.value
-              ) ===
-              defaultCoin.value
+              coin.value >
+              0
+          )
+          .sort(
+            (
+              first,
+              second
+            ) =>
+              second.value -
+              first.value
           );
-
-        return {
-          ...defaultCoin,
-          ...supplied,
-
-          type:
-            supplied?.type ||
-            defaultCoin.type,
-
-          size:
-            supplied?.size ||
-            defaultCoin.size,
-        };
-      }
+      },
+      [
+        currency,
+      ]
     );
-  }, []);
 
   const visibleNotes =
     notes.filter(
@@ -527,7 +1060,7 @@ export default function CashComposer({
         Number(
           note.value
         ) <=
-        remainingCents
+        remainingMinorUnits
     );
 
   const visibleCoins =
@@ -536,26 +1069,30 @@ export default function CashComposer({
         Number(
           coin.value
         ) <=
-        remainingCents
+        remainingMinorUnits
     );
 
-  function publishCents(
-    nextCents
+  function publishMinorUnits(
+    nextMinorUnits
   ) {
-    const safeCents =
+    const safeMinorUnits =
       Math.max(
         0,
         Math.min(
           Number(
-            nextCents
-          ) || 0,
-          maximumCents,
-          MAX_AMOUNT_CENTS
+            nextMinorUnits
+          ) ||
+            0,
+          maximumMinorUnits,
+          MAXIMUM_MINOR_UNITS
         )
       );
 
     onAmountChange?.(
-      safeCents / 100
+      minorUnitsToAmount(
+        safeMinorUnits,
+        currency
+      )
     );
   }
 
@@ -567,9 +1104,10 @@ export default function CashComposer({
     );
 
     setKeypadDigits(
-      amountCents > 0
+      amountMinorUnits >
+      0
         ? String(
-            amountCents
+            amountMinorUnits
           )
         : ''
     );
@@ -579,25 +1117,22 @@ export default function CashComposer({
     value
   ) {
     const denomination =
-      Number(value) || 0;
-
-    if (denomination <= 0) {
-      return;
-    }
+      Number(
+        value
+      ) ||
+      0;
 
     if (
+      denomination <=
+        0 ||
       denomination >
-      remainingCents
+        remainingMinorUnits
     ) {
-      setShowMaximumHint(
-        true
-      );
-
       return;
     }
 
-    const nextCents =
-      amountCents +
+    const nextMinorUnits =
+      amountMinorUnits +
       denomination;
 
     setDenominationHistory(
@@ -608,11 +1143,13 @@ export default function CashComposer({
     );
 
     setKeypadDigits(
-      String(nextCents)
+      String(
+        nextMinorUnits
+      )
     );
 
-    publishCents(
-      nextCents
+    publishMinorUnits(
+      nextMinorUnits
     );
   }
 
@@ -621,18 +1158,23 @@ export default function CashComposer({
       []
     );
 
-    setKeypadDigits('');
+    setKeypadDigits(
+      ''
+    );
 
-    publishCents(0);
+    publishMinorUnits(
+      0
+    );
   }
 
   function deleteLastDigit() {
     const currentDigits =
       keypadDigits ||
       (
-        amountCents > 0
+        amountMinorUnits >
+        0
           ? String(
-              amountCents
+              amountMinorUnits
             )
           : ''
       );
@@ -651,7 +1193,7 @@ export default function CashComposer({
       nextDigits
     );
 
-    publishCents(
+    publishMinorUnits(
       nextDigits
         ? Number(
             nextDigits
@@ -667,31 +1209,25 @@ export default function CashComposer({
       keypadDigits;
 
     const nextDigits =
-      currentDigits === '0'
+      currentDigits ===
+      '0'
         ? digit
         : `${currentDigits}${digit}`;
 
-    const nextCents =
-      Number(nextDigits);
+    const nextMinorUnits =
+      Number(
+        nextDigits
+      );
 
     if (
       !Number.isFinite(
-        nextCents
-      )
+        nextMinorUnits
+      ) ||
+      nextMinorUnits >
+        maximumMinorUnits ||
+      nextMinorUnits >
+        MAXIMUM_MINOR_UNITS
     ) {
-      return;
-    }
-
-    if (
-      nextCents >
-        maximumCents ||
-      nextCents >
-        MAX_AMOUNT_CENTS
-    ) {
-      setShowMaximumHint(
-        true
-      );
-
       return;
     }
 
@@ -703,25 +1239,35 @@ export default function CashComposer({
       nextDigits
     );
 
-    publishCents(
-      nextCents
+    publishMinorUnits(
+      nextMinorUnits
     );
   }
 
   function handleKeyPress(
     key
   ) {
-    if (key === 'C') {
+    if (
+      key ===
+      'C'
+    ) {
       clearAmount();
+
       return;
     }
 
-    if (key === '⌫') {
+    if (
+      key ===
+      '⌫'
+    ) {
       deleteLastDigit();
+
       return;
     }
 
-    enterDigit(key);
+    enterDigit(
+      key
+    );
   }
 
   function undoLastCashItem() {
@@ -738,9 +1284,9 @@ export default function CashComposer({
           1
       ];
 
-    const nextCents =
+    const nextMinorUnits =
       Math.max(
-        amountCents -
+        amountMinorUnits -
           lastValue,
         0
       );
@@ -754,22 +1300,28 @@ export default function CashComposer({
     );
 
     setKeypadDigits(
-      nextCents > 0
-        ? String(nextCents)
+      nextMinorUnits >
+      0
+        ? String(
+            nextMinorUnits
+          )
         : ''
     );
 
-    publishCents(
-      nextCents
+    publishMinorUnits(
+      nextMinorUnits
     );
   }
 
   function handleCancel() {
     clearAmount();
+
     onCancel?.();
   }
 
-  if (isReceive) {
+  if (
+    isReceive
+  ) {
     return (
       <View
         style={
@@ -782,23 +1334,15 @@ export default function CashComposer({
           }
         />
 
-        {showMaximumHint && (
-          <Text
-            style={
-              styles.limitHintText
-            }
-          >
-            Maximum reached
-          </Text>
-        )}
-
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Cancel adding amount"
           onPress={
             handleCancel
           }
-          style={({ pressed }) => [
+          style={({
+            pressed,
+          }) => [
             styles.receiveCancelButton,
 
             pressed &&
@@ -819,7 +1363,9 @@ export default function CashComposer({
 
   return (
     <View
-      style={styles.composer}
+      style={
+        styles.composer
+      }
     >
       <View
         style={
@@ -835,16 +1381,21 @@ export default function CashComposer({
         </Text>
 
         <Text
-          numberOfLines={1}
+          numberOfLines={
+            1
+          }
           adjustsFontSizeToFit
-          minimumFontScale={0.7}
+          minimumFontScale={
+            0.64
+          }
           style={
             styles.paymentAmount
           }
         >
-          {currencySymbol}
-          {formatAmount(
-            amountCents
+          {formatLocalAmount(
+            amountMinorUnits,
+            currency,
+            currencySymbol
           )}
         </Text>
       </View>
@@ -914,7 +1465,9 @@ export default function CashComposer({
                     key={
                       note.value
                     }
-                    note={note}
+                    note={
+                      note
+                    }
                     onPress={() =>
                       addDenomination(
                         note.value
@@ -929,9 +1482,9 @@ export default function CashComposer({
                   styles.emptyMethodText
                 }
               >
-                {noBalance
-                  ? 'No balance available to pay from.'
-                  : 'Use coins or the keypad for the remaining amount.'}
+                Use coins or the
+                keypad for the
+                remaining amount.
               </Text>
             )}
           </View>
@@ -952,7 +1505,9 @@ export default function CashComposer({
                     key={
                       coin.value
                     }
-                    coin={coin}
+                    coin={
+                      coin
+                    }
                     onPress={() =>
                       addDenomination(
                         coin.value
@@ -967,9 +1522,9 @@ export default function CashComposer({
                   styles.emptyMethodText
                 }
               >
-                {noBalance
-                  ? 'No balance available to pay from.'
-                  : 'Use the keypad for the remaining amount.'}
+                Use the keypad for
+                the remaining
+                amount.
               </Text>
             )}
           </View>
@@ -984,27 +1539,6 @@ export default function CashComposer({
           />
         )}
       </View>
-
-      {noBalance &&
-      activeMethod ===
-        'keypad' ? (
-        <Text
-          style={
-            styles.noBalanceText
-          }
-        >
-          No balance available to
-          pay from.
-        </Text>
-      ) : showMaximumHint ? (
-        <Text
-          style={
-            styles.limitHintText
-          }
-        >
-          Maximum reached
-        </Text>
-      ) : null}
 
       <View
         style={
@@ -1021,7 +1555,9 @@ export default function CashComposer({
           onPress={
             undoLastCashItem
           }
-          style={({ pressed }) => [
+          style={({
+            pressed,
+          }) => [
             styles.utilityButton,
 
             denominationHistory.length ===
@@ -1047,20 +1583,23 @@ export default function CashComposer({
           accessibilityRole="button"
           accessibilityLabel="Clear payment amount"
           disabled={
-            amountCents === 0
+            amountMinorUnits ===
+            0
           }
           onPress={
             clearAmount
           }
-          style={({ pressed }) => [
+          style={({
+            pressed,
+          }) => [
             styles.utilityButton,
 
-            amountCents ===
+            amountMinorUnits ===
               0 &&
               styles.utilityButtonDisabled,
 
             pressed &&
-              amountCents >
+              amountMinorUnits >
                 0 &&
               styles.pressed,
           ]}
@@ -1080,7 +1619,9 @@ export default function CashComposer({
           onPress={
             handleCancel
           }
-          style={({ pressed }) => [
+          style={({
+            pressed,
+          }) => [
             styles.utilityButton,
 
             pressed &&
@@ -1096,6 +1637,9 @@ export default function CashComposer({
           </Text>
         </Pressable>
       </View>
+
+      {decimalPlaces ===
+      0 ? null : null}
     </View>
   );
 }
@@ -1103,63 +1647,93 @@ export default function CashComposer({
 const styles =
   StyleSheet.create({
     composer: {
-      width: '100%',
+      width:
+        '100%',
     },
 
     paymentHeading: {
-      alignItems: 'center',
-      paddingHorizontal: 10,
-      marginBottom: 11,
+      alignItems:
+        'center',
+
+      paddingHorizontal:
+        10,
+
+      marginBottom:
+        11,
     },
 
     paymentLabel: {
       color:
         COLOURS.leather,
 
-      fontSize: 11,
-      fontWeight: '800',
-      letterSpacing: 1.25,
+      fontSize:
+        11,
+
+      fontWeight:
+        '800',
+
+      letterSpacing:
+        1.25,
     },
 
     paymentAmount: {
-      width: '100%',
+      width:
+        '100%',
 
       color:
         COLOURS.ink,
 
-      fontSize: 34,
-      fontWeight: '700',
-      letterSpacing: -0.5,
-      textAlign: 'center',
+      fontSize:
+        34,
 
-      marginTop: 2,
+      fontWeight:
+        '700',
+
+      letterSpacing:
+        -0.5,
+
+      textAlign:
+        'center',
+
+      marginTop:
+        2,
     },
 
     methodSelector: {
-      minHeight: 44,
+      minHeight:
+        44,
 
-      flexDirection: 'row',
+      flexDirection:
+        'row',
 
-      overflow: 'hidden',
+      overflow:
+        'hidden',
 
-      borderWidth: 1,
+      borderWidth:
+        1,
+
       borderColor:
         COLOURS.line,
 
-      borderRadius: 12,
+      borderRadius:
+        12,
 
       backgroundColor:
         COLOURS.paperDark,
     },
 
     methodButton: {
-      flex: 1,
+      flex:
+        1,
 
-      alignItems: 'center',
+      alignItems:
+        'center',
+
       justifyContent:
         'center',
 
-      paddingHorizontal: 5,
+      paddingHorizontal:
+        5,
     },
 
     methodButtonSelected: {
@@ -1171,9 +1745,14 @@ const styles =
       color:
         COLOURS.leather,
 
-      fontSize: 11,
-      fontWeight: '800',
-      letterSpacing: 0.8,
+      fontSize:
+        11,
+
+      fontWeight:
+        '800',
+
+      letterSpacing:
+        0.8,
     },
 
     methodTextSelected: {
@@ -1182,221 +1761,339 @@ const styles =
     },
 
     methodContent: {
-      minHeight: 174,
+      minHeight:
+        174,
 
       justifyContent:
         'center',
 
-      marginTop: 11,
+      marginTop:
+        11,
     },
 
     notesGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
+      flexDirection:
+        'row',
+
+      flexWrap:
+        'wrap',
 
       justifyContent:
         'center',
 
-      gap: 8,
+      gap:
+        8,
     },
 
     note: {
-      width: '48%',
-      minHeight: 64,
+      width:
+        '48%',
 
-      flexDirection: 'row',
-      alignItems: 'center',
+      minHeight:
+        64,
 
-      overflow: 'hidden',
+      flexDirection:
+        'row',
 
-      borderRadius: 9,
+      alignItems:
+        'center',
 
-      borderWidth: 1,
+      overflow:
+        'hidden',
+
+      borderRadius:
+        9,
+
+      borderWidth:
+        1,
+
       borderColor:
         'rgba(255,255,255,0.68)',
 
-      paddingHorizontal: 10,
+      paddingHorizontal:
+        10,
 
       shadowColor:
         '#1C1009',
 
       shadowOffset: {
-        width: 0,
-        height: 2,
+        width:
+          0,
+
+        height:
+          2,
       },
 
-      shadowOpacity: 0.14,
-      shadowRadius: 3,
-      elevation: 2,
+      shadowOpacity:
+        0.14,
+
+      shadowRadius:
+        3,
+
+      elevation:
+        2,
     },
 
     notePressed: {
-      opacity: 0.72,
+      opacity:
+        0.72,
 
       transform: [
         {
-          translateY: 1,
+          translateY:
+            1,
         },
       ],
     },
 
     noteMark: {
-      width: 24,
-      height: 24,
+      width:
+        24,
 
-      alignItems: 'center',
+      height:
+        24,
+
+      alignItems:
+        'center',
+
       justifyContent:
         'center',
 
-      borderWidth: 1.5,
+      borderWidth:
+        1.5,
+
       borderColor:
         '#FFFFFF',
 
-      borderRadius: 12,
+      borderRadius:
+        12,
     },
 
     noteMarkText: {
-      color: '#FFFFFF',
-      fontSize: 11,
-      fontWeight: '900',
+      color:
+        '#FFFFFF',
+
+      fontSize:
+        11,
+
+      fontWeight:
+        '900',
     },
 
     noteValue: {
-      flex: 1,
+      flex:
+        1,
 
-      color: '#FFFFFF',
+      minWidth:
+        0,
 
-      fontSize: 18,
-      fontWeight: '900',
+      color:
+        '#FFFFFF',
 
-      marginLeft: 8,
+      fontSize:
+        18,
+
+      fontWeight:
+        '900',
+
+      marginLeft:
+        8,
     },
 
     noteBrand: {
       color:
         'rgba(255,255,255,0.9)',
 
-      fontSize: 6.5,
-      fontWeight: '800',
-      letterSpacing: 0.6,
+      fontSize:
+        6.5,
+
+      fontWeight:
+        '800',
+
+      letterSpacing:
+        0.6,
     },
 
     coinGrid: {
-      minHeight: 174,
+      minHeight:
+        174,
 
-      flexDirection: 'row',
-      flexWrap: 'wrap',
+      flexDirection:
+        'row',
 
-      alignItems: 'center',
+      flexWrap:
+        'wrap',
+
+      alignItems:
+        'center',
+
       justifyContent:
         'center',
 
-      gap: 7,
+      gap:
+        7,
     },
 
     coinSlot: {
-      width: '23%',
-      height: 78,
+      width:
+        '23%',
 
-      alignItems: 'center',
+      height:
+        78,
+
+      alignItems:
+        'center',
+
       justifyContent:
         'center',
     },
 
     coin: {
-      alignItems: 'center',
-      justifyContent:
+      position:
+        'relative',
+
+      alignItems:
         'center',
 
-      borderWidth: 3,
+      justifyContent:
+        'center',
 
       shadowColor:
         '#211209',
 
       shadowOffset: {
-        width: 0,
-        height: 2,
+        width:
+          0,
+
+        height:
+          2,
       },
 
-      shadowOpacity: 0.18,
-      shadowRadius: 3,
-      elevation: 2,
+      shadowOpacity:
+        0.18,
+
+      shadowRadius:
+        3,
+
+      elevation:
+        2,
+    },
+
+    coinShape: {
+      position:
+        'absolute',
+
+      top:
+        0,
+
+      left:
+        0,
+    },
+
+    coinContent: {
+      position:
+        'absolute',
+
+      top:
+        0,
+
+      right:
+        0,
+
+      bottom:
+        0,
+
+      left:
+        0,
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+      paddingHorizontal:
+        3,
     },
 
     coinPressed: {
-      opacity: 0.72,
+      opacity:
+        0.72,
 
       transform: [
         {
-          scale: 0.96,
+          scale:
+            0.96,
         },
       ],
     },
 
-    goldCoin: {
-      backgroundColor:
-        '#C99A35',
-
-      borderColor:
-        '#F0D27A',
-    },
-
-    silverCoin: {
-      backgroundColor:
-        '#A8ADB1',
-
-      borderColor:
-        '#E0E3E5',
-    },
-
-    copperCoin: {
-      backgroundColor:
-        '#A85D38',
-
-      borderColor:
-        '#D99068',
-    },
-
     coinValue: {
+      width:
+        '100%',
+
       color:
         COLOURS.ink,
 
-      fontSize: 12,
-      fontWeight: '900',
+      fontSize:
+        12,
+
+      fontWeight:
+        '900',
+
+      textAlign:
+        'center',
     },
 
     coinMark: {
       color:
         COLOURS.ink,
 
-      fontSize: 8,
-      fontWeight: '900',
+      fontSize:
+        8,
 
-      marginTop: 1,
+      fontWeight:
+        '900',
+
+      marginTop:
+        1,
     },
 
     keypad: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
+      flexDirection:
+        'row',
 
-      gap: 7,
+      flexWrap:
+        'wrap',
+
+      gap:
+        7,
     },
 
     key: {
-      width: '31%',
-      minHeight: 47,
+      width:
+        '31%',
 
-      flexGrow: 1,
+      minHeight:
+        47,
 
-      alignItems: 'center',
+      flexGrow:
+        1,
+
+      alignItems:
+        'center',
+
       justifyContent:
         'center',
 
-      borderWidth: 1,
+      borderWidth:
+        1,
+
       borderColor:
         COLOURS.line,
 
-      borderRadius: 10,
+      borderRadius:
+        10,
 
       backgroundColor:
         COLOURS.paperDark,
@@ -1408,7 +2105,8 @@ const styles =
 
       transform: [
         {
-          scale: 0.98,
+          scale:
+            0.98,
         },
       ],
     },
@@ -1417,109 +2115,123 @@ const styles =
       color:
         COLOURS.ink,
 
-      fontSize: 19,
-      fontWeight: '700',
+      fontSize:
+        19,
+
+      fontWeight:
+        '700',
     },
 
     keyUtilityText: {
       color:
         COLOURS.leather,
 
-      fontSize: 15,
-      fontWeight: '800',
+      fontSize:
+        15,
+
+      fontWeight:
+        '800',
     },
 
     emptyMethodText: {
       color:
         COLOURS.mutedText,
 
-      fontSize: 12,
-      lineHeight: 18,
-      textAlign: 'center',
+      fontSize:
+        12,
 
-      paddingHorizontal: 30,
-    },
+      lineHeight:
+        18,
 
-    noBalanceText: {
-      color:
-        COLOURS.mutedText,
+      textAlign:
+        'center',
 
-      fontSize: 12,
-      lineHeight: 18,
-      textAlign: 'center',
-
-      marginTop: 9,
-
-      paddingHorizontal: 30,
-    },
-
-    limitHintText: {
-      color:
-        COLOURS.leather,
-
-      fontSize: 12,
-      lineHeight: 18,
-      fontWeight: '700',
-      textAlign: 'center',
-
-      marginTop: 9,
+      paddingHorizontal:
+        30,
     },
 
     utilityRow: {
-      flexDirection: 'row',
-      gap: 8,
-      marginTop: 11,
+      flexDirection:
+        'row',
+
+      gap:
+        8,
+
+      marginTop:
+        11,
     },
 
     utilityButton: {
-      flex: 1,
-      minHeight: 38,
+      flex:
+        1,
 
-      alignItems: 'center',
+      minHeight:
+        38,
+
+      alignItems:
+        'center',
+
       justifyContent:
         'center',
 
-      borderWidth: 1,
+      borderWidth:
+        1,
+
       borderColor:
         COLOURS.copper,
 
-      borderRadius: 9,
+      borderRadius:
+        9,
 
       backgroundColor:
         COLOURS.paper,
     },
 
     utilityButtonDisabled: {
-      opacity: 0.25,
+      opacity:
+        0.25,
     },
 
     utilityText: {
       color:
         COLOURS.leather,
 
-      fontSize: 9,
-      fontWeight: '900',
-      letterSpacing: 0.65,
+      fontSize:
+        9,
+
+      fontWeight:
+        '900',
+
+      letterSpacing:
+        0.65,
     },
 
     receiveComposer: {
-      width: '100%',
+      width:
+        '100%',
     },
 
     receiveCancelButton: {
-      minHeight: 38,
+      minHeight:
+        38,
 
-      alignItems: 'center',
+      alignItems:
+        'center',
+
       justifyContent:
         'center',
 
-      borderWidth: 1,
+      borderWidth:
+        1,
+
       borderColor:
         COLOURS.line,
 
-      borderRadius: 9,
+      borderRadius:
+        9,
 
-      marginTop: 10,
+      marginTop:
+        10,
 
       backgroundColor:
         COLOURS.paper,
@@ -1529,12 +2241,18 @@ const styles =
       color:
         COLOURS.leather,
 
-      fontSize: 9,
-      fontWeight: '900',
-      letterSpacing: 0.7,
+      fontSize:
+        9,
+
+      fontWeight:
+        '900',
+
+      letterSpacing:
+        0.7,
     },
 
     pressed: {
-      opacity: 0.65,
+      opacity:
+        0.65,
     },
   });

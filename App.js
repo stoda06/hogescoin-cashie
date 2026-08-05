@@ -1,7 +1,6 @@
 import {
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from 'react';
 
@@ -11,14 +10,16 @@ import {
   View,
 } from 'react-native';
 
-import * as Clipboard from 'expo-clipboard';
-
 import WalletCoverScreen from './screens/WalletCoverScreen.js';
 import HomeScreen from './screens/HomeScreen.js';
 import WhoToPayScreen from './screens/WhoToPayScreen.js';
 import ReviewPaymentScreen from './screens/ReviewPaymentScreen.js';
 import PaymentCompleteScreen from './screens/PaymentCompleteScreen.js';
 import CashiePersonDetailScreen from './screens/CashiePersonDetailScreen.js';
+import TapToPayScreen from './screens/TapToPayScreen.js';
+import PaymentRequestIncompleteScreen from './screens/PaymentRequestIncompleteScreen.js';
+import UpdateBatteryScreen from './screens/UpdateBatteryScreen.js';
+import ChangeLocalCashScreen from './screens/ChangeLocalCashScreen.js';
 
 import CashiePeopleList from './components/CashiePeopleList.js';
 import CashiePersonForm from './components/CashiePersonForm.js';
@@ -27,6 +28,10 @@ import CashieStatement from './components/CashieStatement.js';
 import CashieDeleteHistoryModal from './components/CashieDeleteHistoryModal.js';
 import CashieDashie from './components/CashieDashie.js';
 import CashieSettings from './components/CashieSettings.js';
+import {
+  startNfcScan,
+  cancelNfcScan,
+} from './services/nfcService.js';
 
 import {
   addCashiePerson,
@@ -54,16 +59,14 @@ import {
   clearPaymentHistory,
   factoryResetStorage,
   loadAppState,
-  loadSettings,
   saveAppState,
-  saveSettings,
 } from './services/storageService.js';
 
 import {
   TEST_ADDRESS,
 } from './utils/constants.js';
 
-import validateAddress from './utils/validateAddress.js';
+import CURRENCIES from './components/currencies.json';
 
 const HOGES_MINT_ADDRESS =
   '2GU6q72m9MnYRSsUszUwipLUBMpXm72gijL2VhQAHnyz';
@@ -72,7 +75,7 @@ const SCREEN_BACKGROUND =
   '#F8F3E8';
 
 const INITIAL_WALLET = {
-  solBalance: 1.25,
+  solBalance: 0.003,
   hogesBalance: 12500,
 };
 
@@ -88,11 +91,11 @@ const INITIAL_MEMBER_SINCE =
 const INITIAL_DISPLAY_CURRENCY =
   'AUD';
 
-const BATTERY_LOW_THRESHOLD_AUD =
-  2;
+const DEFAULT_BATTERY_MODE =
+  'auto';
 
-const BATTERY_TOP_UP_AUD =
-  2;
+const DEFAULT_BATTERY_LOW_PERCENT =
+  20;
 
 const DEFAULT_SOL_PRICE_AUD =
   200;
@@ -106,6 +109,54 @@ function formatAudAmount(
   return `A$${Number(
     amount || 0
   ).toFixed(2)}`;
+}
+
+function formatLocalAmount(
+  amount,
+  currency
+) {
+  const numericAmount =
+    Number(
+      amount ||
+      0
+    );
+
+  const decimalPlaces =
+    Number.isInteger(
+      Number(
+        currency
+          ?.decimalPlaces
+      )
+    )
+      ? Number(
+          currency
+            .decimalPlaces
+        )
+      : 2;
+
+  const formattedAmount =
+    numericAmount.toLocaleString(
+      'en-AU',
+      {
+        minimumFractionDigits:
+          decimalPlaces,
+
+        maximumFractionDigits:
+          decimalPlaces,
+      }
+    );
+
+  const symbol =
+    String(
+      currency?.symbol ||
+      ''
+    );
+
+  return currency
+    ?.symbolPosition ===
+    'after'
+      ? `${formattedAmount} ${symbol}`
+      : `${symbol}${formattedAmount}`;
 }
 
 function formatActivityDate(
@@ -253,7 +304,26 @@ function parseScannedRecipient(
         payload.version ||
         1
       ),
-  };
+    amount:
+      Number.isFinite(
+        Number(
+          payload.amount
+        )
+      ) &&
+      Number(
+        payload.amount
+      ) >
+        0
+        ? Number(
+            payload.amount
+          )
+        : null,
+
+    currencyCode:
+      String(
+        payload.currencyCode ||
+        INITIAL_DISPLAY_CURRENCY
+      ).toUpperCase(),  };
 }
 
 function createInitialPriceSnapshot() {
@@ -343,6 +413,20 @@ export default function App() {
   );
 
   const [
+    tapStatus,
+    setTapStatus,
+  ] = useState(
+    'searching'
+  );
+
+  const [
+    tappedRecipient,
+    setTappedRecipient,
+  ] = useState(
+    null
+  );
+
+  const [
     paymentAmount,
     setPaymentAmount,
   ] = useState(
@@ -413,10 +497,17 @@ export default function App() {
   );
 
   const [
-    batteryReminderAud,
-    setBatteryReminderAud,
+    batteryMode,
+    setBatteryMode,
   ] = useState(
-    BATTERY_LOW_THRESHOLD_AUD
+    DEFAULT_BATTERY_MODE
+  );
+
+  const [
+    batteryLowThresholdPercent,
+    setBatteryLowThresholdPercent,
+  ] = useState(
+    DEFAULT_BATTERY_LOW_PERCENT
   );
 
   const [
@@ -433,24 +524,19 @@ export default function App() {
     false
   );
 
-  const paymentInFlightRef =
-    useRef(
-      false
+  const selectedCurrency =
+    useMemo(
+      () =>
+        CURRENCIES[
+          displayCurrency
+        ] ||
+        CURRENCIES[
+          INITIAL_DISPLAY_CURRENCY
+        ],
+      [
+        displayCurrency,
+      ]
     );
-
-  const [
-    paymentApprovalEnabled,
-    setPaymentApprovalEnabled,
-  ] = useState(
-    true
-  );
-
-  const [
-    depositWalletAddress,
-    setDepositWalletAddress,
-  ] = useState(
-    ''
-  );
 
   const selectedPerson =
     useMemo(
@@ -492,21 +578,29 @@ export default function App() {
           solBalance:
             wallet.solBalance,
 
-          solPriceAud:
+                    solPriceLocal:
+            priceSnapshot
+              .solPriceDisplay ??
             priceSnapshot
               .solPriceAud,
 
-          lowThresholdAud:
-            batteryReminderAud,
+          currency:
+            selectedCurrency,
 
-          topUpAud:
-            BATTERY_TOP_UP_AUD,
+          batteryMode,
+
+          lowThresholdPercent:
+            batteryLowThresholdPercent,
         }),
       [
         wallet.solBalance,
         priceSnapshot
+          .solPriceDisplay,
+        priceSnapshot
           .solPriceAud,
-        batteryReminderAud,
+        selectedCurrency,
+        batteryMode,
+        batteryLowThresholdPercent,
       ]
     );
 
@@ -526,25 +620,26 @@ export default function App() {
       let active =
         true;
 
-      /*
-       * Load stored state and prices independently:
-       * a price failure must never cost us the stored
-       * state, and a failed load must never let the
-       * save effect overwrite it with defaults.
-       */
       async function initialiseApp() {
-        let storedState =
-          null;
-
-        let stateLoaded =
-          false;
-
         try {
-          storedState =
-            await loadAppState();
+          const [
+            storedState,
+            latestPrices,
+          ] =
+            await Promise.all([
+              loadAppState(),
 
-          stateLoaded =
-            true;
+              getPriceSnapshot({
+                displayCurrency:
+                  INITIAL_DISPLAY_CURRENCY,
+
+                solPriceAud:
+                  DEFAULT_SOL_PRICE_AUD,
+
+                hogesPerSol:
+                  DEFAULT_HOGES_PER_SOL,
+              }),
+            ]);
 
           if (
             !active
@@ -560,17 +655,15 @@ export default function App() {
             );
           }
 
-          if (
-            typeof storedState
-              ?.walletName ===
-            'string'
+                    if (
+            storedState?.wallet
           ) {
-            setWalletName(
-              cleanWalletName(
-                storedState
-                  .walletName
-              )
-            );
+            setWallet({
+              ...storedState.wallet,
+
+              hogesBalance:
+                12500,
+            });
           }
 
           if (
@@ -633,106 +726,54 @@ export default function App() {
           }
 
           if (
-            Number.isFinite(
-              Number(
-                storedState
-                  ?.batteryReminderAud
-              )
-            )
-          ) {
-            setBatteryReminderAud(
-              Number(
-                storedState
-                  .batteryReminderAud
-              )
-            );
-          }
+  storedState?.batteryMode ===
+    'auto' ||
+  storedState?.batteryMode ===
+    'remind'
+) {
+  setBatteryMode(
+    storedState.batteryMode
+  );
+}
 
+if (
+  Number.isFinite(
+    Number(
+      storedState?.batteryLowThresholdPercent
+    )
+  )
+) {
+  setBatteryLowThresholdPercent(
+    Math.max(
+      0,
+      Math.min(
+        100,
+        Number(
+          storedState.batteryLowThresholdPercent
+        )
+      )
+    )
+  );
+}
+
+          setPriceSnapshot(
+            latestPrices
+          );
         } catch (
           error
         ) {
           console.warn(
-            'Cashie state load failed:',
+            'Cashie startup failed:',
             error
           );
-        }
-
-        try {
-          const storedSettings =
-            await loadSettings();
-
-          if (
-            !active
-          ) {
-            return;
-          }
-
-          if (
-            typeof storedSettings
-              ?.paymentApprovalEnabled ===
-            'boolean'
-          ) {
-            setPaymentApprovalEnabled(
-              storedSettings
-                .paymentApprovalEnabled
-            );
-          }
-
-          if (
-            typeof storedSettings
-              ?.depositWalletAddress ===
-            'string'
-          ) {
-            setDepositWalletAddress(
-              storedSettings
-                .depositWalletAddress
-            );
-          }
-        } catch (
-          error
-        ) {
-          console.warn(
-            'Cashie settings load failed:',
-            error
-          );
-        }
-
-        if (
-          active &&
-          stateLoaded
-        ) {
-          setStorageReady(
-            true
-          );
-        }
-
-        try {
-          const latestPrices =
-            await getPriceSnapshot({
-              displayCurrency:
-                INITIAL_DISPLAY_CURRENCY,
-
-              solPriceAud:
-                DEFAULT_SOL_PRICE_AUD,
-
-              hogesPerSol:
-                DEFAULT_HOGES_PER_SOL,
-            });
-
+        } finally {
           if (
             active
           ) {
-            setPriceSnapshot(
-              latestPrices
+            setStorageReady(
+              true
             );
           }
-        } catch (
-          error
-        ) {
-          console.warn(
-            'Cashie price refresh failed:',
-            error
-          );
         }
       }
 
@@ -765,7 +806,8 @@ export default function App() {
         selectedCurrency:
           displayCurrency,
 
-        batteryReminderAud,
+        batteryMode,
+batteryLowThresholdPercent,
       }).catch(
         error => {
           console.warn(
@@ -784,34 +826,8 @@ export default function App() {
       paymentsMade,
       memberSince,
       displayCurrency,
-      batteryReminderAud,
-    ]
-  );
-
-  useEffect(
-    () => {
-      if (
-        !storageReady
-      ) {
-        return;
-      }
-
-      saveSettings({
-        paymentApprovalEnabled,
-        depositWalletAddress,
-      }).catch(
-        error => {
-          console.warn(
-            'Cashie settings save failed:',
-            error
-          );
-        }
-      );
-    },
-    [
-      storageReady,
-      paymentApprovalEnabled,
-      depositWalletAddress,
+      batteryMode,
+batteryLowThresholdPercent,
     ]
   );
 
@@ -869,54 +885,19 @@ export default function App() {
     ]
   );
 
-  /*
-   * The wallet cover promises activation "on first
-   * deposit". Without this, a factory reset left
-   * walletActivated false forever and the app was
-   * soft-locked behind the cover.
-   */
-  useEffect(
-    () => {
-      if (
-        walletActivated
-      ) {
-        return;
-      }
-
-      const hasFunds =
-        Number(
-          wallet
-            ?.hogesBalance ||
-          0
-        ) >
-          0 ||
-        Number(
-          wallet
-            ?.solBalance ||
-          0
-        ) >
-          0;
-
-      if (
-        hasFunds
-      ) {
-        setWalletActivated(
-          true
-        );
-      }
-    },
-    [
-      walletActivated,
-      wallet,
-    ]
-  );
-
   function clearPayment() {
-    paymentInFlightRef.current =
-      false;
+    cancelNfcScan();
 
     setRecipient(
       null
+    );
+
+    setTappedRecipient(
+      null
+    );
+
+    setTapStatus(
+      'searching'
     );
 
     setPaymentAmount(
@@ -985,12 +966,38 @@ export default function App() {
     );
   }
 
+  function openUpdateBattery() {
+    clearPayment();
+    clearSelectedViews();
+
+    setCurrentScreen(
+      'update-battery'
+    );
+  }
+
   function openSettings() {
     clearPayment();
     clearSelectedViews();
 
     setCurrentScreen(
       'cashie-settings'
+    );
+  }
+
+  function openChangeLocalCash() {
+    clearPayment();
+    clearSelectedViews();
+
+    setCurrentScreen(
+      'change-local-cash'
+    );
+  }
+
+    function confirmBatteryUpdate() {
+    topUpBattery();
+
+    setCurrentScreen(
+      'cashie-dashie'
     );
   }
 
@@ -1034,9 +1041,6 @@ export default function App() {
       return;
     }
 
-    paymentInFlightRef.current =
-      false;
-
     setPaymentAmount(
       numericAmount
     );
@@ -1044,6 +1048,14 @@ export default function App() {
     setRecipient(
       null
     );
+
+    setCurrentScreen(
+      'who-to-pay'
+    );
+  }
+
+  function openTapOrScan() {
+    clearPayment();
 
     setCurrentScreen(
       'who-to-pay'
@@ -1058,7 +1070,7 @@ export default function App() {
     );
   }
 
-  function returnToWalletFromPerson() {
+  function payCashiePerson() {
     clearPayment();
 
     setSelectedPersonId(
@@ -1088,14 +1100,84 @@ export default function App() {
   }
 
   function chooseRecipient(
-    selectedRecipient
+    selectedRecipient,
+    suppliedAmount =
+      null
   ) {
+    const requestAmount =
+      Number(
+        suppliedAmount ??
+        selectedRecipient
+          ?.amount ??
+        0
+      );
+
     setRecipient(
       selectedRecipient
     );
 
+    if (
+      Number.isFinite(
+        requestAmount
+      ) &&
+      requestAmount >
+        0
+    ) {
+      setPaymentAmount(
+        requestAmount
+      );
+    }
+
     setCurrentScreen(
       'review-payment'
+    );
+  }
+
+  function showIncompleteRequest(
+    incompleteRecipient
+  ) {
+    setRecipient(
+      incompleteRecipient
+    );
+
+    setCurrentScreen(
+      'payment-request-incomplete'
+    );
+  }
+
+  function handlePaymentRequest(
+    paymentRequest
+  ) {
+    if (
+      !paymentRequest
+    ) {
+      return;
+    }
+
+    const requestAmount =
+      Number(
+        paymentRequest
+          .amount ||
+        0
+      );
+
+    if (
+      !Number.isFinite(
+        requestAmount
+      ) ||
+      requestAmount <=
+        0
+    ) {
+      showIncompleteRequest(
+        paymentRequest
+      );
+
+      return;
+    }
+
+    chooseRecipient(
+      paymentRequest,
+      requestAmount
     );
   }
 
@@ -1118,33 +1200,171 @@ export default function App() {
       return;
     }
 
-    chooseRecipient(
+    handlePaymentRequest(
       scannedRecipient
     );
   }
 
   function scanCashieQr() {
     /*
-     * Snack demo scanner.
+     * Demo scanner.
      *
-     * Replace the payload below with the value returned
-     * by the device camera scanner when that is connected.
+     * This deliberately contains no amount so the
+     * incomplete-request screen can be tested.
      */
 
     handleScannedQrValue(
       JSON.stringify({
         type:
-          'cashie-wallet',
+          'cashie-payment',
 
         version:
           1,
 
         walletName:
-          'Scanned Merchant',
+          'Russ',
 
         walletAddress:
           TEST_ADDRESS,
+
+        amount:
+          null,
+
+        currencyCode:
+          displayCurrency,
       })
+    );
+  }
+
+  async function beginTapToPay() {
+    cancelNfcScan();
+
+    setTappedRecipient(
+      null
+    );
+
+    setTapStatus(
+      'searching'
+    );
+
+    setCurrentScreen(
+      'tap-to-pay'
+    );
+
+    try {
+      const tappedRequest =
+        await startNfcScan();
+
+      const tappedPaymentRecipient = {
+        name:
+          cleanWalletName(
+            tappedRequest
+              ?.walletName ||
+            ''
+          ),
+
+        address:
+          normaliseWalletAddress(
+            tappedRequest
+              ?.walletAddress ||
+            ''
+          ),
+
+        amount:
+          tappedRequest
+            ?.amount ??
+          null,
+
+        currencyCode:
+          tappedRequest
+            ?.currencyCode ||
+          displayCurrency,
+
+        requiresName:
+          !cleanWalletName(
+            tappedRequest
+              ?.walletName ||
+            ''
+          ),
+
+        isSavedContact:
+          false,
+
+        qrType:
+          'cashie-payment',
+
+        qrVersion:
+          1,
+      };
+
+      if (
+        !tappedPaymentRecipient
+          .address
+      ) {
+        throw new Error(
+          'The tapped Cashie request did not contain a valid wallet address.'
+        );
+      }
+
+      setTappedRecipient(
+        tappedPaymentRecipient
+      );
+
+      setTapStatus(
+        'connected'
+      );
+    } catch (
+      error
+    ) {
+      if (
+        String(
+          error?.message ||
+          ''
+        )
+          .toLowerCase()
+          .includes(
+            'cancel'
+          )
+      ) {
+        return;
+      }
+
+      console.warn(
+        'Cashie Tap failed:',
+        error
+      );
+
+      setTapStatus(
+        'failed'
+      );
+    }
+  }
+
+  function continueTappedPayment() {
+    if (
+      !tappedRecipient
+    ) {
+      return;
+    }
+
+    handlePaymentRequest(
+      tappedRecipient
+    );
+  }
+
+  function cancelTapToPay() {
+    cancelNfcScan();
+
+    setTappedRecipient(
+      null
+    );
+
+    setTapStatus(
+      'searching'
+    );
+
+    setCurrentScreen(
+      'who-to-pay'
     );
   }
 
@@ -1156,47 +1376,6 @@ export default function App() {
   }
 
   function completePayment() {
-    if (
-      paymentInFlightRef
-        .current
-    ) {
-      return;
-    }
-
-    paymentInFlightRef.current =
-      true;
-
-    const hogesPriceAud =
-      Number(
-        priceSnapshot
-          ?.hogesPriceAud ||
-        0
-      );
-
-    const hogesSpent =
-      hogesPriceAud >
-      0
-        ? paymentAmount /
-          hogesPriceAud
-        : 0;
-
-    setWallet(
-      currentWallet => ({
-        ...currentWallet,
-
-        hogesBalance:
-          Math.max(
-            Number(
-              currentWallet
-                ?.hogesBalance ||
-              0
-            ) -
-              hogesSpent,
-            0
-          ),
-      })
-    );
-
     if (
       recipientIsKnown()
     ) {
@@ -1253,19 +1432,6 @@ export default function App() {
       return;
     }
 
-    // Validate here, before the state updater runs:
-    // addCashiePerson throws on a bad address, and a
-    // throw inside setCashiePeople crashes the app.
-    if (
-      !validateAddress(
-        walletAddress
-      )
-    ) {
-      throw new Error(
-        'That does not look like a Solana wallet address.'
-      );
-    }
-
     const newActivity =
       createSentActivity({
         amount:
@@ -1318,19 +1484,6 @@ export default function App() {
       !walletAddress ||
       !name
     ) {
-      return;
-    }
-
-    if (
-      !validateAddress(
-        walletAddress
-      )
-    ) {
-      Alert.alert(
-        'Invalid wallet address',
-        'That does not look like a Solana wallet address.'
-      );
-
       return;
     }
 
@@ -1455,18 +1608,12 @@ export default function App() {
         activity.time ||
         '',
 
-      /*
-       * Local bookkeeping entries have no on-chain
-       * identity: no fabricated transaction id, and
-       * "Recorded" rather than a settlement claim.
-       */
       transactionId:
         activity.transactionId ||
-        '',
+        activity.id,
 
       status:
-        activity.status ||
-        'Recorded',
+        'Completed',
     };
 
     setSelectedReceipt(
@@ -1530,58 +1677,50 @@ export default function App() {
     );
   }
 
-  async function copyWalletAddress() {
-    try {
-      await Clipboard.setStringAsync(
-        TEST_ADDRESS
-      );
-
-      Alert.alert(
-        'Wallet Address Copied',
-        TEST_ADDRESS
-      );
-    } catch (
-      error
-    ) {
-      Alert.alert(
-        'Wallet Address',
-        TEST_ADDRESS
-      );
-    }
+  function copyWalletAddress() {
+    Alert.alert(
+      'Wallet Address',
+      `${TEST_ADDRESS}\n\nCopy-to-clipboard will be connected when the wallet is live.`
+    );
   }
 
-  function topUpBattery(
-    amountAud =
-      BATTERY_TOP_UP_AUD
-  ) {
-    const numericAmountAud =
+  function topUpBattery() {
+    const topUpRequiredLocal =
       Number(
-        amountAud ||
-        BATTERY_TOP_UP_AUD
+        battery
+          .batteryTopUpRequiredLocal ||
+        0
       );
 
     if (
       !Number.isFinite(
-        numericAmountAud
+        topUpRequiredLocal
       ) ||
-      numericAmountAud <=
+      topUpRequiredLocal <=
         0
     ) {
+      Alert.alert(
+        'Battery Full',
+        'Your Cashie Battery is already full.'
+      );
+
       return;
     }
 
-    const solPriceAud =
+        const solPriceLocal =
       Number(
         priceSnapshot
-          ?.solPriceAud ||
-        DEFAULT_SOL_PRICE_AUD
+          ?.solPriceDisplay ??
+        priceSnapshot
+          ?.solPriceAud ??
+        0
       );
 
     if (
       !Number.isFinite(
-        solPriceAud
+        solPriceLocal
       ) ||
-      solPriceAud <=
+      solPriceLocal <=
         0
     ) {
       Alert.alert(
@@ -1593,8 +1732,8 @@ export default function App() {
     }
 
     const solToAdd =
-      numericAmountAud /
-      solPriceAud;
+      topUpRequiredLocal /
+      solPriceLocal;
 
     setWallet(
       currentWallet => ({
@@ -1612,8 +1751,9 @@ export default function App() {
 
     Alert.alert(
       'Battery Updated',
-      `${formatAudAmount(
-        numericAmountAud
+      `${formatLocalAmount(
+        topUpRequiredLocal,
+        selectedCurrency
       )} of SOL has been added to your Cashie Battery.`
     );
   }
@@ -1727,16 +1867,12 @@ export default function App() {
       INITIAL_DISPLAY_CURRENCY
     );
 
-    setBatteryReminderAud(
-      BATTERY_LOW_THRESHOLD_AUD
+        setBatteryMode(
+      DEFAULT_BATTERY_MODE
     );
 
-    setPaymentApprovalEnabled(
-      true
-    );
-
-    setDepositWalletAddress(
-      ''
+    setBatteryLowThresholdPercent(
+      DEFAULT_BATTERY_LOW_PERCENT
     );
 
     setRecipient(
@@ -1791,6 +1927,79 @@ export default function App() {
 
   if (
     currentScreen ===
+    'update-battery'
+  ) {
+    return (
+      <UpdateBatteryScreen
+        batteryChargePercent={
+          battery.chargePercent
+        }
+        batteryTopUpRequiredLocal={
+          battery
+            .batteryTopUpRequiredLocal
+        }
+        currencyCode={
+          displayCurrency
+        }
+        currencySymbol={
+          selectedCurrency
+            .symbol
+        }
+        currencySymbolPosition={
+          selectedCurrency
+            .symbolPosition
+        }
+        currencyDecimalPlaces={
+          selectedCurrency
+            .decimalPlaces
+        }
+        onBack={
+          openCashieDashie
+        }
+        onConfirm={
+          confirmBatteryUpdate
+        }
+      />
+    );
+  }
+
+    if (
+    currentScreen ===
+    'change-local-cash'
+  ) {
+    return (
+      <ChangeLocalCashScreen
+        currencies={
+          Object.entries(
+            CURRENCIES
+          ).map(
+            ([
+              code,
+              currency,
+            ]) => ({
+              ...currency,
+
+              code:
+                currency.code ||
+                code,
+            })
+          )
+        }
+        selectedCurrencyCode={
+          displayCurrency
+        }
+        onSelectCurrency={
+          setDisplayCurrency
+        }
+        onBack={
+          openSettings
+        }
+      />
+    );
+  }  
+
+      if (
+    currentScreen ===
     'cashie-settings'
   ) {
     return (
@@ -1809,45 +2018,44 @@ export default function App() {
         walletAddress={
           TEST_ADDRESS
         }
-        depositWalletAddress={
-          depositWalletAddress
-        }
-        onDepositWalletChange={
-          setDepositWalletAddress
-        }
         hogesBalance={
           wallet.hogesBalance
         }
         solBalance={
           wallet.solBalance
         }
-        paymentApprovalEnabled={
-          paymentApprovalEnabled
-        }
-        onPaymentApprovalChange={
-          setPaymentApprovalEnabled
-        }
         batteryReserveAud={
           battery.reserveAud
         }
         batteryReminderAud={
-          batteryReminderAud
+          battery.lowThresholdLocal
         }
-        displayCurrency="Australian Dollar"
-        currencyCode={
+        localCurrencyName={
+          selectedCurrency
+            .name
+        }
+        localCurrencyCode={
           displayCurrency
         }
-        appVersion="0.1.0"
+        localCurrencyFlag={
+          selectedCurrency
+            .flag
+        }
+        version="0.1.0"
+        onChangeLocalCash={
+          openChangeLocalCash
+        }
         onCopyWalletAddress={
           copyWalletAddress
         }
-        onTopUpBattery={() =>
-          topUpBattery(
-            BATTERY_TOP_UP_AUD
-          )
+        onTopUpBattery={
+          openUpdateBattery
         }
         onEmptyWallet={
           emptyWallet
+        }
+        onStartFresh={
+          factoryReset
         }
         onClearHistory={
           clearAllLocalHistory
@@ -1880,16 +2088,51 @@ export default function App() {
         batteryChargePercent={
           battery.chargePercent
         }
+        batteryStatus={
+          battery.status
+        }
         estimatedPaymentsRemaining={
           battery
             .estimatedPaymentsRemaining
         }
-        estimatedRechargeCostAud={
-          battery.topUpAud
+                batteryReserveAud={
+          battery.reserveLocal
         }
-        batteryReserveAud={
-          battery.reserveAud
+        batteryMode={
+          batteryMode
         }
+        batteryCapacityLocal={
+          battery
+            .batteryFullThresholdLocal
+        }
+        batteryLowThresholdLocal={
+          battery
+            .lowThresholdLocal
+        }
+        batteryTopUpRequiredLocal={
+          battery
+            .batteryTopUpRequiredLocal
+        }
+        activationAmountLocal={
+          battery
+            .activationAmountLocal
+        }
+        currencyCode={
+          displayCurrency
+        }
+        currencySymbol={
+          selectedCurrency
+            .symbol
+        }
+        currencySymbolPosition={
+          selectedCurrency
+            .symbolPosition
+        }
+        currencyDecimalPlaces={
+          selectedCurrency
+            .decimalPlaces
+        }
+
         paymentsMade={
           paymentsMade
         }
@@ -1927,16 +2170,6 @@ export default function App() {
           priceSnapshot
             .hogesPriceAud
         }
-        solPriceAud={
-          priceSnapshot
-            .solPriceAud
-        }
-        walletAddress={
-          TEST_ADDRESS
-        }
-        depositWalletAddress={
-          depositWalletAddress
-        }
         totalWalletValueAud={
           walletValue
             .totalValueAud
@@ -1953,8 +2186,11 @@ export default function App() {
         onSettings={
           openSettings
         }
+        onBatteryModeChange={
+          setBatteryMode
+        }
         onTopUpBattery={
-          topUpBattery
+        openUpdateBattery
         }
       />
     );
@@ -2063,8 +2299,8 @@ export default function App() {
           onBack={
             openCashiePeople
           }
-          onReturnToWallet={
-            returnToWalletFromPerson
+          onPay={
+            payCashiePerson
           }
           onEdit={
             openEditPerson
@@ -2195,6 +2431,59 @@ export default function App() {
 
   if (
     currentScreen ===
+    'tap-to-pay'
+  ) {
+    return (
+      <TapToPayScreen
+        status={
+          tapStatus
+        }
+        recipientName={
+          tappedRecipient
+            ?.name ||
+          ''
+        }
+        recipientAddress={
+          tappedRecipient
+            ?.address ||
+          ''
+        }
+        onCancel={
+          cancelTapToPay
+        }
+        onContinue={
+          continueTappedPayment
+        }
+      />
+    );
+  }
+
+  if (
+    currentScreen ===
+    'payment-request-incomplete'
+  ) {
+    return (
+      <PaymentRequestIncompleteScreen
+        walletName={
+          recipient?.name ||
+          'This person'
+        }
+        onScanOrTapAgain={() => {
+          clearPayment();
+
+          setCurrentScreen(
+            'who-to-pay'
+          );
+        }}
+        onCancel={
+          returnHome
+        }
+      />
+    );
+  }
+
+  if (
+    currentScreen ===
     'who-to-pay'
   ) {
     return (
@@ -2205,25 +2494,11 @@ export default function App() {
         onScan={
           scanCashieQr
         }
+        onTap={
+          beginTapToPay
+        }
         onSelectPerson={
-          person => {
-            chooseRecipient({
-              name:
-                person.name,
-
-              address:
-                person.walletAddress,
-
-              requiresName:
-                false,
-
-              isSavedContact:
-                true,
-
-              personId:
-                person.id,
-            });
-          }
+  openPersonDetail
         }
         onPasteAddress={
           address => {
@@ -2233,15 +2508,8 @@ export default function App() {
               );
 
             if (
-              !validateAddress(
-                walletAddress
-              )
+              !walletAddress
             ) {
-              Alert.alert(
-                'Invalid wallet address',
-                'That does not look like a Solana wallet address.'
-              );
-
               return;
             }
 
@@ -2323,10 +2591,7 @@ export default function App() {
           alreadyKnown
         }
         requiresName={
-          !alreadyKnown &&
-          recipient
-            ?.requiresName !==
-            false
+          !alreadyKnown
         }
         suggestedName={
           recipient?.name ||
@@ -2350,9 +2615,25 @@ export default function App() {
       walletName={
         walletName
       }
-      hogesAudPrice={
+            hogesAudPrice={
+        priceSnapshot
+          .hogesPriceDisplay ??
         priceSnapshot
           .hogesPriceAud
+      }
+            currencyCode={
+        displayCurrency
+      }
+      currencySymbol={
+        selectedCurrency
+          .symbol
+      }
+      currencyFlag={
+        selectedCurrency
+          .flag
+      }
+      selectedCurrency={
+        selectedCurrency
       }
       requestedAmount={
         requestedAmount
@@ -2381,6 +2662,12 @@ export default function App() {
       }
       onReceiveAmount={
         createReceiveRequest
+      }
+      onOpenMerchant={
+        openTapOrScan
+      }
+      onMerchant={
+        openTapOrScan
       }
       onOpenPeople={
         openCashiePeople

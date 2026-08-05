@@ -59,9 +59,7 @@ function shortenAddress(address = '') {
   )}...${cleanAddress.slice(-5)}`;
 }
 
-function shortenTransactionId(
-  txId = ''
-) {
+function shortenTransactionId(txId = '') {
   const cleanTxId =
     String(txId).trim();
 
@@ -99,38 +97,10 @@ function getInitials(name = '') {
     .join('');
 }
 
-function CostRow({
-  label,
-  value,
-  total = false,
-}) {
-  return (
-    <View style={styles.costRow}>
-      <Text
-        style={
-          total
-            ? styles.costTotalLabel
-            : styles.costLabel
-        }
-      >
-        {label}
-      </Text>
-
-      <Text
-        style={
-          total
-            ? styles.costTotalValue
-            : styles.costValue
-        }
-      >
-        {value}
-      </Text>
-    </View>
-  );
-}
-
-export default function PaymentCompleteScreen({
+export default function ReceiveCompleteScreen({
+  sender = '',
   recipient = '',
+
   walletAddress = '',
   requiresName = false,
 
@@ -138,14 +108,18 @@ export default function PaymentCompleteScreen({
   currencySymbol = '$',
   txId = '',
 
-  networkCostAud = 0,
-  swapCostAud = 0,
-
   isCashiePerson = false,
 
   onRemember,
   onDone,
 }) {
+  const senderName =
+    String(
+      sender ||
+        recipient ||
+        ''
+    ).trim();
+
   const [
     remembered,
     setRemembered,
@@ -159,16 +133,7 @@ export default function PaymentCompleteScreen({
   ] = useState(
     requiresName
       ? ''
-      : recipient
-  );
-
-  const [
-    savedName,
-    setSavedName,
-  ] = useState(
-    isCashiePerson
-      ? recipient
-      : ''
+      : senderName
   );
 
   const [
@@ -192,55 +157,21 @@ export default function PaymentCompleteScreen({
       txId
     );
 
-  const displayRecipient =
-    recipient?.trim() ||
+  const displaySender =
+    senderName ||
     displayAddress ||
-    'Recipient';
-
-  const totalCostAud =
-    Number(
-      networkCostAud || 0
-    ) +
-    Number(
-      swapCostAud || 0
-    );
+    'Cashie Person';
 
   const shouldOfferSave =
     Boolean(walletAddress) &&
     !remembered;
 
-  function displayCost(value) {
-    const numericValue =
-      Number(value || 0);
-
-    if (numericValue === 0) {
-      return `${currencySymbol}0.00`;
-    }
-
-    if (numericValue < 0.01) {
-      return `${currencySymbol}${numericValue.toFixed(
-        3
-      )}`;
-    }
-
-    return `${currencySymbol}${numericValue.toFixed(
-      2
-    )}`;
-  }
-
   useEffect(() => {
     setRemembered(
       isCashiePerson
     );
-
-    setSavedName(
-      isCashiePerson
-        ? recipient
-        : ''
-    );
   }, [
     isCashiePerson,
-    recipient,
     walletAddress,
   ]);
 
@@ -248,10 +179,10 @@ export default function PaymentCompleteScreen({
     setCashieName(
       requiresName
         ? ''
-        : recipient
+        : senderName
     );
   }, [
-    recipient,
+    senderName,
     requiresName,
     walletAddress,
   ]);
@@ -274,20 +205,14 @@ export default function PaymentCompleteScreen({
       await onRemember({
         name: cleanName,
         walletAddress,
-        lastPaidAt:
+        lastReceivedAt:
           new Date().toISOString(),
       });
 
-      setSavedName(
-        cleanName
-      );
-
-      setRemembered(
-        true
-      );
+      setRemembered(true);
     } catch (error) {
       console.error(
-        'Unable to save Cashie Person:',
+        'Unable to remember Cashie Person:',
         error
       );
     } finally {
@@ -332,16 +257,18 @@ export default function PaymentCompleteScreen({
             >
               <Text
                 style={
-                  styles.successTick
+                  styles.receiveArrow
                 }
               >
-                ✓
+                ↓
               </Text>
             </View>
           </View>
 
-          <Text style={styles.title}>
-            PAID
+          <Text
+            style={styles.title}
+          >
+            RECEIVED
           </Text>
 
           <Text
@@ -349,11 +276,13 @@ export default function PaymentCompleteScreen({
               styles.subtitle
             }
           >
-            Your payment has been sent.
+            Your payment has arrived.
           </Text>
         </View>
 
-        <View style={styles.receipt}>
+        <View
+          style={styles.receipt}
+        >
           <View
             pointerEvents="none"
             style={
@@ -371,7 +300,7 @@ export default function PaymentCompleteScreen({
 
           <View
             style={
-              styles.recipientRow
+              styles.senderRow
             }
           >
             <View
@@ -385,14 +314,14 @@ export default function PaymentCompleteScreen({
                 }
               >
                 {getInitials(
-                  displayRecipient
+                  displaySender
                 )}
               </Text>
             </View>
 
             <View
               style={
-                styles.recipientCopy
+                styles.senderCopy
               }
             >
               <Text
@@ -400,16 +329,16 @@ export default function PaymentCompleteScreen({
                   styles.receiptLabel
                 }
               >
-                PAID TO
+                RECEIVED FROM
               </Text>
 
               <Text
                 numberOfLines={2}
                 style={
-                  styles.recipient
+                  styles.senderName
                 }
               >
-                {displayRecipient}
+                {displaySender}
               </Text>
 
               {displayAddress ? (
@@ -436,14 +365,16 @@ export default function PaymentCompleteScreen({
               styles.receiptLabel
             }
           >
-            AMOUNT
+            AMOUNT RECEIVED
           </Text>
 
           <Text
             numberOfLines={1}
             adjustsFontSizeToFit
             minimumFontScale={0.68}
-            style={styles.amount}
+            style={
+              styles.amount
+            }
           >
             {currencySymbol}
             {displayAmount}
@@ -484,58 +415,6 @@ export default function PaymentCompleteScreen({
 
           <View
             style={
-              styles.divider
-            }
-          />
-
-          <View
-            style={
-              styles.costBreakdown
-            }
-          >
-            <Text
-              style={
-                styles.costHeading
-              }
-            >
-              ACTUAL COST
-            </Text>
-
-            <CostRow
-              label="Network"
-              value={displayCost(
-                networkCostAud
-              )}
-            />
-
-            {Number(
-              swapCostAud || 0
-            ) > 0 ? (
-              <CostRow
-                label="Swap"
-                value={displayCost(
-                  swapCostAud
-                )}
-              />
-            ) : null}
-
-            <View
-              style={
-                styles.costDivider
-              }
-            />
-
-            <CostRow
-              label="Total"
-              value={displayCost(
-                totalCostAud
-              )}
-              total
-            />
-          </View>
-
-          <View
-            style={
               styles.receiptFooter
             }
           >
@@ -544,7 +423,7 @@ export default function PaymentCompleteScreen({
                 styles.receiptFooterText
               }
             >
-              Paid with Cashie
+              Received with Cashie
             </Text>
 
             <Text
@@ -592,7 +471,7 @@ export default function PaymentCompleteScreen({
               onChangeText={
                 setCashieName
               }
-              placeholder="Cashie Person"
+              placeholder="Name"
               placeholderTextColor={
                 COLORS.muted
               }
@@ -669,10 +548,7 @@ export default function PaymentCompleteScreen({
                 styles.rememberedText
               }
             >
-              {savedName ||
-                cleanName ||
-                displayRecipient}{' '}
-              added to Cashie People
+              Saved to Cashie People
             </Text>
           </View>
         ) : null}
@@ -773,13 +649,13 @@ const styles =
         COLORS.leatherDark,
     },
 
-    successTick: {
+    receiveArrow: {
       color:
         COLORS.copperLight,
 
-      fontSize: 40,
-      fontWeight: '900',
-      lineHeight: 44,
+      fontSize: 43,
+      fontWeight: '800',
+      lineHeight: 47,
     },
 
     title: {
@@ -788,7 +664,7 @@ const styles =
 
       fontSize: 28,
       fontWeight: '900',
-      letterSpacing: 2,
+      letterSpacing: 1.6,
 
       marginTop: 13,
     },
@@ -858,7 +734,7 @@ const styles =
       marginBottom: 17,
     },
 
-    recipientRow: {
+    senderRow: {
       flexDirection: 'row',
       alignItems: 'center',
     },
@@ -891,7 +767,7 @@ const styles =
       fontWeight: '800',
     },
 
-    recipientCopy: {
+    senderCopy: {
       flex: 1,
     },
 
@@ -904,7 +780,7 @@ const styles =
       letterSpacing: 1.25,
     },
 
-    recipient: {
+    senderName: {
       color:
         COLORS.ink,
 
@@ -972,74 +848,13 @@ const styles =
       textAlign: 'right',
     },
 
-    costBreakdown: {
-      gap: 10,
-    },
-
-    costHeading: {
-      color:
-        COLORS.copperDark,
-
-      fontSize: 8,
-      fontWeight: '900',
-      letterSpacing: 1.2,
-
-      marginBottom: 2,
-    },
-
-    costRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent:
-        'space-between',
-    },
-
-    costLabel: {
-      color:
-        COLORS.muted,
-
-      fontSize: 10,
-    },
-
-    costValue: {
-      color:
-        COLORS.ink,
-
-      fontSize: 11,
-      fontWeight: '700',
-    },
-
-    costDivider: {
-      height: 1,
-      backgroundColor:
-        COLORS.line,
-
-      marginVertical: 2,
-    },
-
-    costTotalLabel: {
-      color:
-        COLORS.leatherDark,
-
-      fontSize: 11,
-      fontWeight: '900',
-    },
-
-    costTotalValue: {
-      color:
-        COLORS.copperDark,
-
-      fontSize: 13,
-      fontWeight: '900',
-    },
-
     receiptFooter: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent:
         'space-between',
 
-      marginTop: 19,
+      marginTop: 20,
     },
 
     receiptFooterText: {
@@ -1165,7 +980,6 @@ const styles =
         COLORS.paperRaised,
 
       marginTop: 14,
-      paddingHorizontal: 14,
     },
 
     rememberedTick: {
@@ -1193,14 +1007,11 @@ const styles =
     },
 
     rememberedText: {
-      flex: 1,
-
       color:
         COLORS.leatherDark,
 
       fontSize: 12,
       fontWeight: '800',
-      lineHeight: 17,
     },
 
     doneButton: {

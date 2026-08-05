@@ -5,9 +5,9 @@ import React, {
 } from 'react';
 
 import {
-  FlatList,
   Pressable,
   SafeAreaView,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -26,6 +26,7 @@ import {
 import CashiePageHeader from './CashiePageHeader.js';
 import CashiePeopleEmptyState from './CashiePeopleEmptyState.js';
 import CashieBottomNavigation from './CashieBottomNavigation.js';
+
 
 const FALLBACK_CASHIE_COLOURS = {
   darkLeather: '#382015',
@@ -222,26 +223,15 @@ function formatLastPaid(
     return `${differenceInDays} days ago`;
   }
 
-  const formatOptions =
+  return paymentDate.toLocaleDateString(
+    'en-AU',
     {
       day:
         'numeric',
 
       month:
         'short',
-    };
-
-  if (
-    paymentDate.getFullYear() !==
-    now.getFullYear()
-  ) {
-    formatOptions.year =
-      'numeric';
-  }
-
-  return paymentDate.toLocaleDateString(
-    'en-AU',
-    formatOptions
+    }
   );
 }
 
@@ -431,9 +421,14 @@ export default function CashiePeopleList({
     ''
   );
 
-  const listRef =
+  const scrollViewRef =
     useRef(
       null
+    );
+
+  const sectionPositions =
+    useRef(
+      {}
     );
 
   const preparedPeople =
@@ -577,98 +572,12 @@ export default function CashiePeopleList({
       ]
     );
 
-  const listItems =
-    useMemo(
-      () => {
-        const items =
-          [];
-
-        if (
-          recentPeople.length >
-          0
-        ) {
-          items.push(
-            {
-              type:
-                'header',
-
-              key:
-                'header-RECENT',
-
-              title:
-                'RECENT',
-            }
-          );
-
-          recentPeople.forEach(
-            person => {
-              items.push(
-                {
-                  type:
-                    'person',
-
-                  key:
-                    `recent-${person.id}`,
-
-                  person,
-                }
-              );
-            }
-          );
-        }
-
-        ALPHABET.forEach(
-          section => {
-            const sectionPeople =
-              alphabeticalGroups[
-                section
-              ];
-
-            if (
-              !sectionPeople?.length
-            ) {
-              return;
-            }
-
-            items.push(
-              {
-                type:
-                  'header',
-
-                key:
-                  `header-${section}`,
-
-                title:
-                  section,
-
-                section,
-              }
-            );
-
-            sectionPeople.forEach(
-              person => {
-                items.push(
-                  {
-                    type:
-                      'person',
-
-                    key:
-                      person.id,
-
-                    person,
-                  }
-                );
-              }
-            );
-          }
-        );
-
-        return items;
-      },
-      [
-        recentPeople,
-        alphabeticalGroups,
-      ]
+  const visibleSections =
+    ALPHABET.filter(
+      section =>
+        alphabeticalGroups[
+          section
+        ]?.length
     );
 
   const peopleSubtitle =
@@ -680,25 +589,22 @@ export default function CashiePeopleList({
   function handleIndexPress(
     letter
   ) {
-    const index =
-      listItems.findIndex(
-        item =>
-          item.type ===
-            'header' &&
-          item.section ===
-            letter
-      );
+    const position =
+      sectionPositions.current[
+        letter
+      ];
 
     if (
-      index <
-      0
+      typeof position !==
+      'number'
     ) {
       return;
     }
 
-    listRef.current?.scrollToIndex(
+    scrollViewRef.current?.scrollTo(
       {
-        index,
+        y:
+          position,
 
         animated:
           true,
@@ -706,47 +612,14 @@ export default function CashiePeopleList({
     );
   }
 
-  function handleScrollToIndexFailed(
-    info
+  function recordSectionPosition(
+    section,
+    event
   ) {
-    listRef.current?.scrollToOffset(
-      {
-        offset:
-          info.averageItemLength *
-          info.index,
-
-        animated:
-          true,
-      }
-    );
-  }
-
-  function renderListItem({
-    item,
-  }) {
-    if (
-      item.type ===
-      'header'
-    ) {
-      return (
-        <SectionHeader
-          title={
-            item.title
-          }
-        />
-      );
-    }
-
-    return (
-      <PersonRow
-        person={
-          item.person
-        }
-        onPress={
-          onSelectPerson
-        }
-      />
-    );
+    sectionPositions.current[
+      section
+    ] =
+      event.nativeEvent.layout.y;
   }
 
   return (
@@ -772,12 +645,16 @@ export default function CashiePeopleList({
             styles.pageContent
           }
         >
-          <CashiePageHeader
+        <CashiePageHeader
             title="CASHIE PEOPLE"
             subtitle={
               peopleSubtitle
             }
-            icon="people"
+            icon="back"
+            onIconPress={
+              onHome
+            }
+            iconAccessibilityLabel="Return to Wallet"
           />
 
           {people.length >
@@ -846,21 +723,89 @@ export default function CashiePeopleList({
               />
             ) : (
               <>
-                <FlatList
+                <ScrollView
                   ref={
-                    listRef
+                    scrollViewRef
                   }
-                  data={
-                    listItems
+                  style={
+                    styles.peopleScroll
                   }
-                  keyExtractor={
-                    item =>
-                      item.key
+                  contentContainerStyle={
+                    styles.peopleScrollContent
                   }
-                  renderItem={
-                    renderListItem
+                  showsVerticalScrollIndicator={
+                    false
                   }
-                  ListEmptyComponent={
+                  keyboardShouldPersistTaps="handled"
+                >
+                  {recentPeople.length >
+                  0 ? (
+                    <View>
+                      <SectionHeader
+                        title="RECENT"
+                      />
+
+                      {recentPeople.map(
+                        person => (
+                          <PersonRow
+                            key={
+                              `recent-${person.id}`
+                            }
+                            person={
+                              person
+                            }
+                            onPress={
+                              onSelectPerson
+                            }
+                          />
+                        )
+                      )}
+                    </View>
+                  ) : null}
+
+                  {visibleSections.map(
+                    section => (
+                      <View
+                        key={
+                          section
+                        }
+                        onLayout={
+                          event =>
+                            recordSectionPosition(
+                              section,
+                              event
+                            )
+                        }
+                      >
+                        <SectionHeader
+                          title={
+                            section
+                          }
+                        />
+
+                        {alphabeticalGroups[
+                          section
+                        ].map(
+                          person => (
+                            <PersonRow
+                              key={
+                                person.id
+                              }
+                              person={
+                                person
+                              }
+                              onPress={
+                                onSelectPerson
+                              }
+                            />
+                          )
+                        )}
+                      </View>
+                    )
+                  )}
+
+                  {filteredPeople.length ===
+                  0 ? (
                     <View
                       style={
                         styles.noSearchResults
@@ -882,21 +827,8 @@ export default function CashiePeopleList({
                         Try another name
                       </Text>
                     </View>
-                  }
-                  onScrollToIndexFailed={
-                    handleScrollToIndexFailed
-                  }
-                  style={
-                    styles.peopleScroll
-                  }
-                  contentContainerStyle={
-                    styles.peopleScrollContent
-                  }
-                  showsVerticalScrollIndicator={
-                    false
-                  }
-                  keyboardShouldPersistTaps="handled"
-                />
+                  ) : null}
+                </ScrollView>
 
                 <View
                   style={
