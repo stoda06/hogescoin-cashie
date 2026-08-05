@@ -54,20 +54,48 @@ const COLOURS = {
 
 function formatMoney(
   amount,
-  currencySymbol
+  currencySymbol,
+  symbolPosition = 'before',
+  decimalPlaces = 2
 ) {
-  return `${currencySymbol}${Number(
-    amount || 0
-  ).toLocaleString(
-    'en-AU',
-    {
-      minimumFractionDigits:
-        2,
+  const safeDecimalPlaces =
+    Number.isFinite(
+      Number(
+        decimalPlaces
+      )
+    )
+      ? Math.max(
+          0,
+          Math.trunc(
+            Number(
+              decimalPlaces
+            )
+          )
+        )
+      : 2;
 
-      maximumFractionDigits:
-        2,
-    }
-  )}`;
+  const formattedNumber =
+    Number(
+      amount || 0
+    ).toLocaleString(
+      'en-AU',
+      {
+        minimumFractionDigits:
+          safeDecimalPlaces,
+
+        maximumFractionDigits:
+          safeDecimalPlaces,
+      }
+    );
+
+  if (
+    symbolPosition ===
+    'after'
+  ) {
+    return `${formattedNumber} ${currencySymbol}`;
+  }
+
+  return `${currencySymbol}${formattedNumber}`;
 }
 
 function shortenAddress(
@@ -448,6 +476,8 @@ function PaySide({
   cashieBalance,
   currencyCode,
   currencySymbol,
+  currencySymbolPosition,
+  currencyDecimalPlaces,
   currencyFlag,
   onCurrencyPress,
   onPay,
@@ -518,7 +548,9 @@ function PaySide({
           >
             {formatMoney(
               cashieBalance,
-              currencySymbol
+              currencySymbol,
+              currencySymbolPosition,
+              currencyDecimalPlaces
             )}
           </Text>
         </View>
@@ -564,6 +596,8 @@ function ReceiveSide({
   requestedAmount,
   currencyCode,
   currencySymbol,
+  currencySymbolPosition,
+  currencyDecimalPlaces,
   onAddAmount,
   onCopyAddress,
   onShare,
@@ -716,7 +750,9 @@ function ReceiveSide({
           >
             {formatMoney(
               requestedAmount,
-              currencySymbol
+              currencySymbol,
+              currencySymbolPosition,
+              currencyDecimalPlaces
             )}
           </Text>
 
@@ -826,6 +862,8 @@ export default function CashieCard({
   cashieBalance = 0,
   currencyCode = 'AUD',
   currencySymbol = '$',
+  currencySymbolPosition = 'before',
+  currencyDecimalPlaces = 2,
   currencyFlag = '🇦🇺',
 
   requestedAmount = 0,
@@ -851,6 +889,22 @@ export default function CashieCard({
       null
     );
 
+  const isMountedRef =
+    useRef(
+      true
+    );
+
+  useEffect(
+    () => {
+      isMountedRef.current = true;
+
+      return () => {
+        isMountedRef.current = false;
+      };
+    },
+    []
+  );
+
   const [
     shareButtonVisible,
     setShareButtonVisible,
@@ -871,21 +925,28 @@ export default function CashieCard({
 
   useEffect(
     () => {
-      Animated.timing(
-        flipProgress,
-        {
-          toValue:
-            showingReceive
-              ? 1
-              : 0,
+      const flipAnimation =
+        Animated.timing(
+          flipProgress,
+          {
+            toValue:
+              showingReceive
+                ? 1
+                : 0,
 
-          duration:
-            520,
+            duration:
+              520,
 
-          useNativeDriver:
-            true,
-        }
-      ).start();
+            useNativeDriver:
+              true,
+          }
+        );
+
+      flipAnimation.start();
+
+      return () => {
+        flipAnimation.stop();
+      };
     },
     [
       flipProgress,
@@ -927,9 +988,13 @@ export default function CashieCard({
           }
         );
 
-      setShareButtonVisible(
-        true
-      );
+      if (
+        isMountedRef.current
+      ) {
+        setShareButtonVisible(
+          true
+        );
+      }
 
       const sharingAvailable =
         await Sharing.isAvailableAsync();
@@ -971,13 +1036,17 @@ export default function CashieCard({
         'Cashie could not create the payment request image. Please try again.'
       );
     } finally {
-      setShareButtonVisible(
-        true
-      );
+      if (
+        isMountedRef.current
+      ) {
+        setShareButtonVisible(
+          true
+        );
 
-      setIsSharing(
-        false
-      );
+        setIsSharing(
+          false
+        );
+      }
     }
   }
 
@@ -1057,6 +1126,12 @@ export default function CashieCard({
             currencySymbol={
               currencySymbol
             }
+            currencySymbolPosition={
+              currencySymbolPosition
+            }
+            currencyDecimalPlaces={
+              currencyDecimalPlaces
+            }
             currencyFlag={
             currencyFlag
             }
@@ -1119,6 +1194,12 @@ export default function CashieCard({
             }
             currencySymbol={
               currencySymbol
+            }
+            currencySymbolPosition={
+              currencySymbolPosition
+            }
+            currencyDecimalPlaces={
+              currencyDecimalPlaces
             }
             onAddAmount={
               onAddAmount

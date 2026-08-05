@@ -1,4 +1,6 @@
-import React from 'react';
+import React, {
+  useState,
+} from 'react';
 
 import {
   Pressable,
@@ -238,9 +240,51 @@ export default function UpdateBatteryScreen({
         0
     );
 
+  const [
+    hasConfirmed,
+    setHasConfirmed,
+  ] = useState(
+    false
+  );
+
+  const safeDecimalPlaces =
+    Math.max(
+      0,
+      Math.min(
+        4,
+        Number(
+          currencyDecimalPlaces
+        ) ||
+          0
+      )
+    );
+
+  const minorUnit =
+    1 /
+    Math.pow(
+      10,
+      safeDecimalPlaces
+    );
+
   const batteryIsFull =
-    topUpRequired <=
-    0;
+    topUpRequired <
+      minorUnit ||
+    percentage >=
+      100;
+
+  function handleConfirmPress() {
+    if (
+      hasConfirmed
+    ) {
+      return;
+    }
+
+    setHasConfirmed(
+      true
+    );
+
+    onConfirm?.();
+  }
 
   const formattedTopUp =
     formatLocalAmount({
@@ -532,15 +576,22 @@ export default function UpdateBatteryScreen({
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Confirm Battery update"
+                  disabled={
+                    hasConfirmed
+                  }
                   onPress={
-                    onConfirm
+                    handleConfirmPress
                   }
                   style={({
                     pressed,
                   }) => [
                     styles.primaryButton,
 
+                    hasConfirmed &&
+                      styles.primaryButtonDisabled,
+
                     pressed &&
+                      !hasConfirmed &&
                       styles.controlPressed,
                   ]}
                 >
@@ -619,10 +670,10 @@ const styles =
         COLORS.copper,
 
       backgroundColor:
-        COLORS.darkLeather,
+        COLORS.leatherDark,
 
       shadowColor:
-        COLORS.darkLeather,
+        COLORS.leatherDark,
 
       shadowOffset: {
         width:
@@ -740,7 +791,7 @@ const styles =
         COLORS.paperDark,
 
       shadowColor:
-        COLORS.darkLeather,
+        COLORS.leatherDark,
 
       shadowOffset: {
         width:
@@ -1135,6 +1186,11 @@ const styles =
 
       backgroundColor:
         COLORS.leather,
+    },
+
+    primaryButtonDisabled: {
+      opacity:
+        0.45,
     },
 
     primaryButtonText: {

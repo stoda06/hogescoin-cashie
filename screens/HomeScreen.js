@@ -375,6 +375,12 @@ export default function HomeScreen({
               currencySymbol={
               currencySymbol
               }
+              currencySymbolPosition={
+              selectedCurrency?.symbolPosition
+              }
+              currencyDecimalPlaces={
+              selectedCurrency?.decimalPlaces
+              }
               currencyFlag={
               currencyFlag
               }

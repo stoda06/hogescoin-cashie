@@ -49,6 +49,7 @@ export default function TapToPayScreen({
 
   onCancel,
   onContinue,
+  onRetry,
 }) {
   const [
     elapsedSeconds,
@@ -135,6 +136,12 @@ export default function TapToPayScreen({
       ) {
         return undefined;
       }
+
+      // A retry keeps this screen mounted, so each
+      // new search starts its count from zero.
+      setElapsedSeconds(
+        0
+      );
 
       const timer =
         setInterval(
@@ -286,7 +293,10 @@ export default function TapToPayScreen({
             styles.timerText
           }
         >
-          {elapsedSeconds}
+          {Math.min(
+            elapsedSeconds,
+            99
+          )}
           s
         </Text>
       </>
@@ -411,8 +421,13 @@ export default function TapToPayScreen({
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Return to payment options"
+          accessibilityLabel={
+            onRetry
+              ? 'Try tap payment again'
+              : 'Return to payment options'
+          }
           onPress={
+            onRetry ||
             onCancel
           }
           style={({
@@ -429,7 +444,9 @@ export default function TapToPayScreen({
               styles.continueButtonText
             }
           >
-            TRY AGAIN
+            {onRetry
+              ? 'TRY AGAIN'
+              : 'BACK'}
           </Text>
         </Pressable>
       </>
