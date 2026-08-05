@@ -1,6 +1,7 @@
 import React, {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -256,15 +257,28 @@ function MethodButton({
 }
 
 function Keypad({
+  decimalPlaces,
   onKeyPress,
 }) {
+  const keys =
+    decimalPlaces ===
+    0
+      ? KEYPAD_KEYS.map(
+          key =>
+            key ===
+            'C'
+              ? '000'
+              : key
+        )
+      : KEYPAD_KEYS;
+
   return (
     <View
       style={
         styles.keypad
       }
     >
-      {KEYPAD_KEYS.map(
+      {keys.map(
         key => (
           <Pressable
             key={
@@ -278,7 +292,10 @@ function Keypad({
                 : key ===
                     '⌫'
                   ? 'Delete last digit'
-                  : key
+                  : key ===
+                      '000'
+                    ? 'Add three zeroes'
+                    : key
             }
             onPress={() =>
               onKeyPress(
@@ -752,6 +769,23 @@ export default function CashComposer({
     []
   );
 
+  const [
+    maximumHintVisible,
+    setMaximumHintVisible,
+  ] = useState(
+    false
+  );
+
+  const maximumHintTimeoutRef =
+    useRef(
+      null
+    );
+
+  const previousCurrencyRef =
+    useRef(
+      currency
+    );
+
   const amountMinorUnits =
     normaliseMinorUnits(
       amount,
@@ -810,23 +844,73 @@ export default function CashComposer({
 
   useEffect(
     () => {
+      if (
+        previousCurrencyRef.current ===
+        currency
+      ) {
+        return;
+      }
+
+      previousCurrencyRef.current =
+        currency;
+
       setDenominationHistory(
         []
       );
 
       setKeypadDigits(
-        amountMinorUnits >
+        ''
+      );
+
+      onAmountChange?.(
         0
-          ? String(
-              amountMinorUnits
-            )
-          : ''
       );
     },
     [
       currency,
     ]
   );
+
+  useEffect(
+    () =>
+      () => {
+        if (
+          maximumHintTimeoutRef.current
+        ) {
+          clearTimeout(
+            maximumHintTimeoutRef.current
+          );
+        }
+      },
+    []
+  );
+
+  function showMaximumHint() {
+    setMaximumHintVisible(
+      true
+    );
+
+    if (
+      maximumHintTimeoutRef.current
+    ) {
+      clearTimeout(
+        maximumHintTimeoutRef.current
+      );
+    }
+
+    maximumHintTimeoutRef.current =
+      setTimeout(
+        () => {
+          setMaximumHintVisible(
+            false
+          );
+
+          maximumHintTimeoutRef.current =
+            null;
+        },
+        1600
+      );
+  }
 
   const notes =
     useMemo(
@@ -890,6 +974,27 @@ export default function CashComposer({
           'green-yellow':
             '#A0A55C',
 
+          'yellow-green':
+            '#A4964C',
+
+          'grey-green':
+            '#7E856E',
+
+          'gold-orange':
+            '#C98E3E',
+
+          'green-red':
+            '#9E7459',
+
+          'brown-red':
+            '#A96453',
+
+          'brown-purple':
+            '#926C73',
+
+          'grey-brown':
+            '#8A7568',
+
           pink:
             '#B96888',
 
@@ -921,17 +1026,24 @@ export default function CashComposer({
                       ''
                   ).toLowerCase()
                 ] ||
-                note.colour ||
-                [
-                  '#73845A',
-                  '#D5A83E',
-                  '#C96558',
-                  '#548FA8',
-                  '#9B7598',
-                ][
-                  index %
-                    5
-                ],
+                (
+                  typeof note.colour ===
+                    'string' &&
+                  note.colour.startsWith(
+                    '#'
+                  )
+                    ? note.colour
+                    : [
+                        '#73845A',
+                        '#D5A83E',
+                        '#C96558',
+                        '#548FA8',
+                        '#9B7598',
+                      ][
+                        index %
+                          5
+                      ]
+                ),
             })
           )
           .filter(
@@ -1124,10 +1236,17 @@ export default function CashComposer({
 
     if (
       denomination <=
-        0 ||
-      denomination >
-        remainingMinorUnits
+      0
     ) {
+      return;
+    }
+
+    if (
+      denomination >
+      remainingMinorUnits
+    ) {
+      showMaximumHint();
+
       return;
     }
 
@@ -1222,12 +1341,19 @@ export default function CashComposer({
     if (
       !Number.isFinite(
         nextMinorUnits
-      ) ||
+      )
+    ) {
+      return;
+    }
+
+    if (
       nextMinorUnits >
         maximumMinorUnits ||
       nextMinorUnits >
         MAXIMUM_MINOR_UNITS
     ) {
+      showMaximumHint();
+
       return;
     }
 
@@ -1261,6 +1387,27 @@ export default function CashComposer({
       '⌫'
     ) {
       deleteLastDigit();
+
+      return;
+    }
+
+    if (
+      key ===
+      '000'
+    ) {
+      if (
+        !keypadDigits ||
+        Number(
+          keypadDigits
+        ) ===
+          0
+      ) {
+        return;
+      }
+
+      enterDigit(
+        '000'
+      );
 
       return;
     }
@@ -1328,11 +1475,36 @@ export default function CashComposer({
           styles.receiveComposer
         }
       >
+        {maximumMinorUnits ===
+          0 && (
+          <Text
+            style={
+              styles.noBalanceText
+            }
+          >
+            No balance available to
+            pay from.
+          </Text>
+        )}
+
         <Keypad
+          decimalPlaces={
+            decimalPlaces
+          }
           onKeyPress={
             handleKeyPress
           }
         />
+
+        {maximumHintVisible && (
+          <Text
+            style={
+              styles.maximumHintText
+            }
+          >
+            Maximum reached
+          </Text>
+        )}
 
         <Pressable
           accessibilityRole="button"
@@ -1399,6 +1571,18 @@ export default function CashComposer({
           )}
         </Text>
       </View>
+
+      {maximumMinorUnits ===
+        0 && (
+        <Text
+          style={
+            styles.noBalanceText
+          }
+        >
+          No balance available to
+          pay from.
+        </Text>
+      )}
 
       <View
         style={
@@ -1533,6 +1717,9 @@ export default function CashComposer({
         {activeMethod ===
           'keypad' && (
           <Keypad
+            decimalPlaces={
+              decimalPlaces
+            }
             onKeyPress={
               handleKeyPress
             }
@@ -1638,8 +1825,15 @@ export default function CashComposer({
         </Pressable>
       </View>
 
-      {decimalPlaces ===
-      0 ? null : null}
+      {maximumHintVisible && (
+        <Text
+          style={
+            styles.maximumHintText
+          }
+        >
+          Maximum reached
+        </Text>
+      )}
     </View>
   );
 }
@@ -2135,7 +2329,7 @@ const styles =
 
     emptyMethodText: {
       color:
-        COLOURS.mutedText,
+        FALLBACK_COLOURS.mutedText,
 
       fontSize:
         12,
@@ -2148,6 +2342,46 @@ const styles =
 
       paddingHorizontal:
         30,
+    },
+
+    noBalanceText: {
+      color:
+        FALLBACK_COLOURS.mutedText,
+
+      fontSize:
+        12,
+
+      lineHeight:
+        18,
+
+      textAlign:
+        'center',
+
+      paddingHorizontal:
+        30,
+
+      marginBottom:
+        11,
+    },
+
+    maximumHintText: {
+      color:
+        COLOURS.copperDark,
+
+      fontSize:
+        11,
+
+      fontWeight:
+        '800',
+
+      letterSpacing:
+        0.4,
+
+      textAlign:
+        'center',
+
+      marginTop:
+        9,
     },
 
     utilityRow: {
