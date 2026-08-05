@@ -20,6 +20,8 @@ import {
 
 import CashieBottomNavigation from '../components/CashieBottomNavigation.js';
 
+import validateAddress from '../utils/validateAddress.js';
+
 const COLORS = {
   paper: '#F8F4EA',
   paperDark: '#EFE8DA',
@@ -348,6 +350,18 @@ export default function WhoToPayScreen({
       return;
     }
 
+    if (
+      !validateAddress(
+        cleanedAddress
+      )
+    ) {
+      setAddressError(
+        'That does not look like a Solana wallet address. Check it and try again.'
+      );
+
+      return;
+    }
+
     onPasteAddress?.(
       cleanedAddress
     );
@@ -624,11 +638,11 @@ export default function WhoToPayScreen({
           </View>
                 </ScrollView>
 
-                <CashieBottomNavigation
-          activeItem="home"
+        <CashieBottomNavigation
+          activeScreen="home"
           onHome={onHome}
           onPeople={onPeople}
-          onDashboard={onDashboard}
+          onDashie={onDashboard}
           onSettings={onSettings}
         />
       </View>

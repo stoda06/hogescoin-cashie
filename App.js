@@ -1,6 +1,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -9,6 +10,8 @@ import {
   SafeAreaView,
   View,
 } from 'react-native';
+
+import * as Clipboard from 'expo-clipboard';
 
 import WalletCoverScreen from './screens/WalletCoverScreen.js';
 import HomeScreen from './screens/HomeScreen.js';
@@ -59,12 +62,16 @@ import {
   clearPaymentHistory,
   factoryResetStorage,
   loadAppState,
+  loadSettings,
   saveAppState,
+  saveSettings,
 } from './services/storageService.js';
 
 import {
   TEST_ADDRESS,
 } from './utils/constants.js';
+
+import validateAddress from './utils/validateAddress.js';
 
 import CURRENCIES from './components/currencies.json';
 
@@ -524,6 +531,30 @@ export default function App() {
     false
   );
 
+  const paymentInFlightRef =
+    useRef(
+      false
+    );
+
+  const batteryUpdateInFlightRef =
+    useRef(
+      false
+    );
+
+  const [
+    paymentApprovalEnabled,
+    setPaymentApprovalEnabled,
+  ] = useState(
+    true
+  );
+
+  const [
+    depositWalletAddress,
+    setDepositWalletAddress,
+  ] = useState(
+    ''
+  );
+
   const selectedCurrency =
     useMemo(
       () =>
@@ -620,26 +651,25 @@ export default function App() {
       let active =
         true;
 
+      /*
+       * Load stored state and prices independently:
+       * a price failure must never cost us the stored
+       * state, and a failed load must never let the
+       * save effect overwrite it with defaults.
+       */
       async function initialiseApp() {
+        let storedState =
+          null;
+
+        let stateLoaded =
+          false;
+
         try {
-          const [
-            storedState,
-            latestPrices,
-          ] =
-            await Promise.all([
-              loadAppState(),
+          storedState =
+            await loadAppState();
 
-              getPriceSnapshot({
-                displayCurrency:
-                  INITIAL_DISPLAY_CURRENCY,
-
-                solPriceAud:
-                  DEFAULT_SOL_PRICE_AUD,
-
-                hogesPerSol:
-                  DEFAULT_HOGES_PER_SOL,
-              }),
-            ]);
+          stateLoaded =
+            true;
 
           if (
             !active
@@ -655,15 +685,17 @@ export default function App() {
             );
           }
 
-                    if (
-            storedState?.wallet
+          if (
+            typeof storedState
+              ?.walletName ===
+            'string'
           ) {
-            setWallet({
-              ...storedState.wallet,
-
-              hogesBalance:
-                12500,
-            });
+            setWalletName(
+              cleanWalletName(
+                storedState
+                  .walletName
+              )
+            );
           }
 
           if (
@@ -756,24 +788,91 @@ if (
   );
 }
 
-          setPriceSnapshot(
-            latestPrices
-          );
         } catch (
           error
         ) {
           console.warn(
-            'Cashie startup failed:',
+            'Cashie state load failed:',
             error
           );
-        } finally {
+        }
+
+        try {
+          const storedSettings =
+            await loadSettings();
+
+          if (
+            !active
+          ) {
+            return;
+          }
+
+          if (
+            typeof storedSettings
+              ?.paymentApprovalEnabled ===
+            'boolean'
+          ) {
+            setPaymentApprovalEnabled(
+              storedSettings
+                .paymentApprovalEnabled
+            );
+          }
+
+          if (
+            typeof storedSettings
+              ?.depositWalletAddress ===
+            'string'
+          ) {
+            setDepositWalletAddress(
+              storedSettings
+                .depositWalletAddress
+            );
+          }
+        } catch (
+          error
+        ) {
+          console.warn(
+            'Cashie settings load failed:',
+            error
+          );
+        }
+
+        if (
+          active &&
+          stateLoaded
+        ) {
+          setStorageReady(
+            true
+          );
+        }
+
+        try {
+          const latestPrices =
+            await getPriceSnapshot({
+              displayCurrency:
+                INITIAL_DISPLAY_CURRENCY,
+
+              solPriceAud:
+                DEFAULT_SOL_PRICE_AUD,
+
+              hogesPerSol:
+                DEFAULT_HOGES_PER_SOL,
+            });
+
           if (
             active
           ) {
-            setStorageReady(
-              true
+            setPriceSnapshot(
+              latestPrices
             );
           }
+        } catch (
+          error
+        ) {
+          console.warn(
+            'Cashie price refresh failed:',
+            error
+          );
         }
       }
 
@@ -839,6 +938,33 @@ batteryLowThresholdPercent,
         return;
       }
 
+      saveSettings({
+        paymentApprovalEnabled,
+        depositWalletAddress,
+      }).catch(
+        error => {
+          console.warn(
+            'Cashie settings save failed:',
+            error
+          );
+        }
+      );
+    },
+    [
+      storageReady,
+      paymentApprovalEnabled,
+      depositWalletAddress,
+    ]
+  );
+
+  useEffect(
+    () => {
+      if (
+        !storageReady
+      ) {
+        return;
+      }
+
       let active =
         true;
 
@@ -885,8 +1011,53 @@ batteryLowThresholdPercent,
     ]
   );
 
+  /*
+   * The wallet cover promises activation "on first
+   * deposit". Without this, a factory reset left
+   * walletActivated false forever and the app was
+   * soft-locked behind the cover.
+   */
+  useEffect(
+    () => {
+      if (
+        walletActivated
+      ) {
+        return;
+      }
+
+      const hasFunds =
+        Number(
+          wallet
+            ?.hogesBalance ||
+          0
+        ) >
+          0 ||
+        Number(
+          wallet
+            ?.solBalance ||
+          0
+        ) >
+          0;
+
+      if (
+        hasFunds
+      ) {
+        setWalletActivated(
+          true
+        );
+      }
+    },
+    [
+      walletActivated,
+      wallet,
+    ]
+  );
+
   function clearPayment() {
     cancelNfcScan();
+
+    paymentInFlightRef.current =
+      false;
 
     setRecipient(
       null
@@ -970,6 +1141,9 @@ batteryLowThresholdPercent,
     clearPayment();
     clearSelectedViews();
 
+    batteryUpdateInFlightRef.current =
+      false;
+
     setCurrentScreen(
       'update-battery'
     );
@@ -993,7 +1167,17 @@ batteryLowThresholdPercent,
     );
   }
 
-    function confirmBatteryUpdate() {
+  function confirmBatteryUpdate() {
+    if (
+      batteryUpdateInFlightRef
+        .current
+    ) {
+      return;
+    }
+
+    batteryUpdateInFlightRef.current =
+      true;
+
     topUpBattery();
 
     setCurrentScreen(
@@ -1041,6 +1225,9 @@ batteryLowThresholdPercent,
       return;
     }
 
+    paymentInFlightRef.current =
+      false;
+
     setPaymentAmount(
       numericAmount
     );
@@ -1070,7 +1257,7 @@ batteryLowThresholdPercent,
     );
   }
 
-  function payCashiePerson() {
+  function returnToWalletFromPerson() {
     clearPayment();
 
     setSelectedPersonId(
@@ -1112,21 +1299,42 @@ batteryLowThresholdPercent,
         0
       );
 
-    setRecipient(
-      selectedRecipient
-    );
-
-    if (
+    const effectiveAmount =
       Number.isFinite(
         requestAmount
       ) &&
       requestAmount >
         0
+        ? requestAmount
+        : paymentAmount;
+
+    if (
+      !Number.isFinite(
+        effectiveAmount
+      ) ||
+      effectiveAmount <=
+        0
     ) {
-      setPaymentAmount(
-        requestAmount
+      Alert.alert(
+        'No Amount Entered',
+        'Enter an amount on your wallet before choosing who to pay.'
       );
+
+      returnHome();
+
+      return;
     }
+
+    paymentInFlightRef.current =
+      false;
+
+    setRecipient(
+      selectedRecipient
+    );
+
+    setPaymentAmount(
+      effectiveAmount
+    );
 
     setCurrentScreen(
       'review-payment'
@@ -1161,13 +1369,30 @@ batteryLowThresholdPercent,
         0
       );
 
-    if (
-      !Number.isFinite(
+    const hasRequestAmount =
+      Number.isFinite(
         requestAmount
-      ) ||
-      requestAmount <=
-        0
+      ) &&
+      requestAmount >
+        0;
+
+    /*
+     * A requested amount is denominated in the
+     * sender's currency. Applying it under a
+     * different display currency would misread
+     * e.g. a JPY 5,000 request as $5,000.
+     */
+    if (
+      hasRequestAmount &&
+      paymentRequest
+        .currencyCode !==
+        displayCurrency
     ) {
+      Alert.alert(
+        'Different Currency',
+        `This payment request is in ${paymentRequest.currencyCode}, but your wallet is set to ${displayCurrency}. Ask the sender for a ${displayCurrency} request, or enter the amount yourself.`
+      );
+
       showIncompleteRequest(
         paymentRequest
       );
@@ -1175,9 +1400,66 @@ batteryLowThresholdPercent,
       return;
     }
 
-    chooseRecipient(
-      paymentRequest,
-      requestAmount
+    if (
+      hasRequestAmount
+    ) {
+      const spendableLocal =
+        Number(
+          wallet
+            ?.hogesBalance ||
+          0
+        ) *
+        Number(
+          priceSnapshot
+            ?.hogesPriceDisplay ??
+          priceSnapshot
+            ?.hogesPriceAud ??
+          0
+        );
+
+      if (
+        requestAmount >
+        spendableLocal
+      ) {
+        Alert.alert(
+          'Not Enough Cashie',
+          `This request is for ${formatLocalAmount(
+            requestAmount,
+            selectedCurrency
+          )}, which is more than your wallet holds.`
+        );
+
+        return;
+      }
+
+      chooseRecipient(
+        paymentRequest,
+        requestAmount
+      );
+
+      return;
+    }
+
+    /*
+     * No amount on the request: fall back to the
+     * amount the payer already composed, so a tap
+     * or scan started from the wallet keypad can
+     * still complete.
+     */
+    if (
+      paymentAmount >
+      0
+    ) {
+      chooseRecipient(
+        paymentRequest,
+        paymentAmount
+      );
+
+      return;
+    }
+
+    showIncompleteRequest(
+      paymentRequest
     );
   }
 
@@ -1317,14 +1599,8 @@ batteryLowThresholdPercent,
       error
     ) {
       if (
-        String(
-          error?.message ||
-          ''
-        )
-          .toLowerCase()
-          .includes(
-            'cancel'
-          )
+        error?.code ===
+        'cancelled'
       ) {
         return;
       }
@@ -1376,6 +1652,64 @@ batteryLowThresholdPercent,
   }
 
   function completePayment() {
+    if (
+      paymentInFlightRef
+        .current
+    ) {
+      return;
+    }
+
+    if (
+      !Number.isFinite(
+        paymentAmount
+      ) ||
+      paymentAmount <=
+        0
+    ) {
+      Alert.alert(
+        'No Amount Entered',
+        'Enter an amount on your wallet before paying.'
+      );
+
+      return;
+    }
+
+    paymentInFlightRef.current =
+      true;
+
+    const hogesPriceLocal =
+      Number(
+        priceSnapshot
+          ?.hogesPriceDisplay ??
+        priceSnapshot
+          ?.hogesPriceAud ??
+        0
+      );
+
+    const hogesSpent =
+      hogesPriceLocal >
+      0
+        ? paymentAmount /
+          hogesPriceLocal
+        : 0;
+
+    setWallet(
+      currentWallet => ({
+        ...currentWallet,
+
+        hogesBalance:
+          Math.max(
+            Number(
+              currentWallet
+                ?.hogesBalance ||
+              0
+            ) -
+              hogesSpent,
+            0
+          ),
+      })
+    );
+
     if (
       recipientIsKnown()
     ) {
@@ -1432,6 +1766,19 @@ batteryLowThresholdPercent,
       return;
     }
 
+    // Validate here, before the state updater runs:
+    // addCashiePerson throws on a bad address, and a
+    // throw inside setCashiePeople crashes the app.
+    if (
+      !validateAddress(
+        walletAddress
+      )
+    ) {
+      throw new Error(
+        'That does not look like a Solana wallet address.'
+      );
+    }
+
     const newActivity =
       createSentActivity({
         amount:
@@ -1484,6 +1831,19 @@ batteryLowThresholdPercent,
       !walletAddress ||
       !name
     ) {
+      return;
+    }
+
+    if (
+      !validateAddress(
+        walletAddress
+      )
+    ) {
+      Alert.alert(
+        'Invalid wallet address',
+        'That does not look like a Solana wallet address.'
+      );
+
       return;
     }
 
@@ -1608,12 +1968,18 @@ batteryLowThresholdPercent,
         activity.time ||
         '',
 
+      /*
+       * Local bookkeeping entries have no on-chain
+       * identity: no fabricated transaction id, and
+       * "Recorded" rather than a settlement claim.
+       */
       transactionId:
         activity.transactionId ||
-        activity.id,
+        '',
 
       status:
-        'Completed',
+        activity.status ||
+        'Recorded',
     };
 
     setSelectedReceipt(
@@ -1677,11 +2043,24 @@ batteryLowThresholdPercent,
     );
   }
 
-  function copyWalletAddress() {
-    Alert.alert(
-      'Wallet Address',
-      `${TEST_ADDRESS}\n\nCopy-to-clipboard will be connected when the wallet is live.`
-    );
+  async function copyWalletAddress() {
+    try {
+      await Clipboard.setStringAsync(
+        TEST_ADDRESS
+      );
+
+      Alert.alert(
+        'Wallet Address Copied',
+        TEST_ADDRESS
+      );
+    } catch (
+      error
+    ) {
+      Alert.alert(
+        'Wallet Address',
+        TEST_ADDRESS
+      );
+    }
   }
 
   function topUpBattery() {
@@ -1875,6 +2254,14 @@ batteryLowThresholdPercent,
       DEFAULT_BATTERY_LOW_PERCENT
     );
 
+    setPaymentApprovalEnabled(
+      true
+    );
+
+    setDepositWalletAddress(
+      ''
+    );
+
     setRecipient(
       null
     );
@@ -1989,7 +2376,26 @@ batteryLowThresholdPercent,
           displayCurrency
         }
         onSelectCurrency={
-          setDisplayCurrency
+          currencyCode => {
+            /*
+             * A pending receive request is a bare
+             * number denominated in the previous
+             * currency; keeping it would re-stamp
+             * e.g. an A$50 request as ¥50.
+             */
+            if (
+              currencyCode !==
+              displayCurrency
+            ) {
+              setRequestedAmount(
+                0
+              );
+            }
+
+            setDisplayCurrency(
+              currencyCode
+            );
+          }
         }
         onBack={
           openSettings
@@ -2018,17 +2424,23 @@ batteryLowThresholdPercent,
         walletAddress={
           TEST_ADDRESS
         }
+        depositWalletAddress={
+          depositWalletAddress
+        }
+        onDepositWalletChange={
+          setDepositWalletAddress
+        }
         hogesBalance={
           wallet.hogesBalance
         }
         solBalance={
           wallet.solBalance
         }
-        batteryReserveAud={
-          battery.reserveAud
+        paymentApprovalEnabled={
+          paymentApprovalEnabled
         }
-        batteryReminderAud={
-          battery.lowThresholdLocal
+        onPaymentApprovalChange={
+          setPaymentApprovalEnabled
         }
         localCurrencyName={
           selectedCurrency
@@ -2048,17 +2460,11 @@ batteryLowThresholdPercent,
         onCopyWalletAddress={
           copyWalletAddress
         }
-        onTopUpBattery={
-          openUpdateBattery
-        }
         onEmptyWallet={
           emptyWallet
         }
         onStartFresh={
           factoryReset
-        }
-        onClearHistory={
-          clearAllLocalHistory
         }
         onFactoryReset={
           factoryReset
@@ -2091,48 +2497,20 @@ batteryLowThresholdPercent,
         batteryStatus={
           battery.status
         }
+        batteryMode={
+          batteryMode
+        }
         estimatedPaymentsRemaining={
           battery
             .estimatedPaymentsRemaining
         }
-                batteryReserveAud={
+        batteryReserveAud={
           battery.reserveLocal
         }
-        batteryMode={
-          batteryMode
-        }
-        batteryCapacityLocal={
+        batteryMaximumAud={
           battery
             .batteryFullThresholdLocal
         }
-        batteryLowThresholdLocal={
-          battery
-            .lowThresholdLocal
-        }
-        batteryTopUpRequiredLocal={
-          battery
-            .batteryTopUpRequiredLocal
-        }
-        activationAmountLocal={
-          battery
-            .activationAmountLocal
-        }
-        currencyCode={
-          displayCurrency
-        }
-        currencySymbol={
-          selectedCurrency
-            .symbol
-        }
-        currencySymbolPosition={
-          selectedCurrency
-            .symbolPosition
-        }
-        currencyDecimalPlaces={
-          selectedCurrency
-            .decimalPlaces
-        }
-
         paymentsMade={
           paymentsMade
         }
@@ -2170,9 +2548,17 @@ batteryLowThresholdPercent,
           priceSnapshot
             .hogesPriceAud
         }
-        totalWalletValueAud={
-          walletValue
-            .totalValueAud
+        solPriceAud={
+          priceSnapshot
+            .solPriceDisplay ??
+          priceSnapshot
+            .solPriceAud
+        }
+        walletAddress={
+          TEST_ADDRESS
+        }
+        depositWalletAddress={
+          depositWalletAddress
         }
         onHome={
           returnHome
@@ -2190,7 +2576,7 @@ batteryLowThresholdPercent,
           setBatteryMode
         }
         onTopUpBattery={
-        openUpdateBattery
+          openUpdateBattery
         }
       />
     );
@@ -2299,8 +2685,8 @@ batteryLowThresholdPercent,
           onBack={
             openCashiePeople
           }
-          onPay={
-            payCashiePerson
+          onReturnToWallet={
+            returnToWalletFromPerson
           }
           onEdit={
             openEditPerson
@@ -2451,6 +2837,9 @@ batteryLowThresholdPercent,
         onCancel={
           cancelTapToPay
         }
+        onRetry={
+          beginTapToPay
+        }
         onContinue={
           continueTappedPayment
         }
@@ -2498,7 +2887,24 @@ batteryLowThresholdPercent,
           beginTapToPay
         }
         onSelectPerson={
-  openPersonDetail
+          person => {
+            chooseRecipient({
+              name:
+                person.name,
+
+              address:
+                person.walletAddress,
+
+              requiresName:
+                false,
+
+              isSavedContact:
+                true,
+
+              personId:
+                person.id,
+            });
+          }
         }
         onPasteAddress={
           address => {
@@ -2508,8 +2914,15 @@ batteryLowThresholdPercent,
               );
 
             if (
-              !walletAddress
+              !validateAddress(
+                walletAddress
+              )
             ) {
+              Alert.alert(
+                'Invalid wallet address',
+                'That does not look like a Solana wallet address.'
+              );
+
               return;
             }
 
@@ -2530,6 +2943,18 @@ batteryLowThresholdPercent,
         }
         onBack={
           returnHome
+        }
+        onHome={
+          returnHome
+        }
+        onPeople={
+          openCashiePeople
+        }
+        onDashboard={
+          openCashieDashie
+        }
+        onSettings={
+          openSettings
         }
       />
     );
@@ -2552,7 +2977,10 @@ batteryLowThresholdPercent,
         amount={
           paymentAmount
         }
-        currencySymbol="A$"
+        currencySymbol={
+          selectedCurrency
+            .symbol
+        }
         onBack={() =>
           setCurrentScreen(
             'who-to-pay'
@@ -2585,13 +3013,19 @@ batteryLowThresholdPercent,
         amount={
           paymentAmount
         }
-        currencySymbol="A$"
+        currencySymbol={
+          selectedCurrency
+            .symbol
+        }
         txId=""
         isCashiePerson={
           alreadyKnown
         }
         requiresName={
-          !alreadyKnown
+          !alreadyKnown &&
+          recipient
+            ?.requiresName !==
+            false
         }
         suggestedName={
           recipient?.name ||
@@ -2680,6 +3114,9 @@ batteryLowThresholdPercent,
       }
       onSettings={
         openSettings
+      }
+      onOpenCurrency={
+        openChangeLocalCash
       }
     />
   );

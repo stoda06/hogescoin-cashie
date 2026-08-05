@@ -32,8 +32,9 @@ const COLORS = {
 
 export default function CashieDashie({
   batteryChargePercent,
+  batteryStatus = 'Ready',
+  batteryMode = 'auto',
   estimatedPaymentsRemaining = 0,
-  estimatedRechargeCostAud = 2,
 
   batteryReserveAud = 0,
   batteryMaximumAud = 2,
@@ -70,6 +71,7 @@ export default function CashieDashie({
   logbookEntries,
 
   onTopUpBattery,
+  onBatteryModeChange,
 
   onLogbookEntryPress,
   onViewStatement,
@@ -176,14 +178,23 @@ export default function CashieDashie({
           >
             <CashieBattery
               variant="dashboard"
-              chargePercent={
+              batteryChargePercent={
                 effectiveBatteryPercent
+              }
+              batteryStatus={
+                batteryStatus
+              }
+              batteryMode={
+                batteryMode
               }
               estimatedPaymentsRemaining={
                 estimatedPaymentsRemaining
               }
-              estimatedRechargeCostAud={
-                estimatedRechargeCostAud
+              onBatteryModeChange={
+                onBatteryModeChange
+              }
+              onTopUpBattery={
+                onTopUpBattery
               }
               onPress={
                 onTopUpBattery

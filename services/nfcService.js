@@ -1,9 +1,16 @@
+import validateAddress from '../utils/validateAddress.js';
+
+/*
+ * Demo data only: a well-formed base58 address so it
+ * passes the same validation a real tapped payload
+ * must pass. Not a funded wallet.
+ */
 const DEMO_RECIPIENT = {
   walletName:
     'Tapped Cashie',
 
   walletAddress:
-    '7xKXDemoTapWalletAddresse1Z3',
+    'TapDemo1CashieWa11etAddre55Ba5e58Va1idAbcd',
 
   amount:
     null,
@@ -11,6 +18,12 @@ const DEMO_RECIPIENT = {
   currencyCode:
     'AUD',
 };
+
+const MAXIMUM_WALLET_NAME_LENGTH =
+  60;
+
+const MAXIMUM_REQUEST_AMOUNT =
+  1000000000;
 
 const DEFAULT_SEARCH_DELAY_MS =
   2200;
@@ -97,13 +110,44 @@ export function validateNfcPaymentRequest(
     return false;
   }
 
+  /*
+   * A tapped payload is attacker-controlled input:
+   * the address must be well-formed base58 and any
+   * amount must be a sane positive number.
+   */
   if (
-    !String(
-      paymentRequest.walletAddress ||
-        ''
-    ).trim()
+    !validateAddress(
+      String(
+        paymentRequest.walletAddress ||
+          ''
+      )
+    )
   ) {
     return false;
+  }
+
+  if (
+    paymentRequest.amount !==
+      null &&
+    paymentRequest.amount !==
+      undefined
+  ) {
+    const numericAmount =
+      Number(
+        paymentRequest.amount
+      );
+
+    if (
+      !Number.isFinite(
+        numericAmount
+      ) ||
+      numericAmount <=
+        0 ||
+      numericAmount >
+        MAXIMUM_REQUEST_AMOUNT
+    ) {
+      return false;
+    }
   }
 
   return true;
@@ -137,7 +181,12 @@ export function normaliseNfcPaymentRequest(
       String(
         paymentRequest.walletName ||
           'Cashie wallet'
-      ).trim(),
+      )
+        .trim()
+        .slice(
+          0,
+          MAXIMUM_WALLET_NAME_LENGTH
+        ),
 
     walletAddress:
       String(
@@ -276,10 +325,21 @@ export function cancelNfcScan() {
     activeSession.timeout
   );
 
-  activeSession.reject?.(
+  const cancellationError =
     new Error(
       'Tap payment cancelled.'
-    )
+    );
+
+  /*
+   * Machine-readable marker so callers can tell a
+   * deliberate cancel from a genuine failure without
+   * matching on message text.
+   */
+  cancellationError.code =
+    'cancelled';
+
+  activeSession.reject?.(
+    cancellationError
   );
 
   activeSession =
